@@ -1,0 +1,21 @@
+{
+  "name": "google-autocomplete-me",
+  "version": "0.0.1",
+  "description": "Google Autocompletion Game",
+  "main": "index.js",
+  "author": "Shawn Johnson <sjohnson@axiomega.com>",
+  "private": true,
+  "license": "BSD",
+  "engines" : { 
+    "node" : ">=6.14.0 <7.0" 
+  },
+  "dependencies": {
+    "socket.io": "2.1.1",
+    "koa": "1.6.2",
+    "koa-static": "1.5.3"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+}
+
