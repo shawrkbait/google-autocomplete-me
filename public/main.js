@@ -1,12 +1,16 @@
 $(function() {
+  const CREATE_PAGE = 1;
+  const SELECT_PAGE = 2;
+  
   var socket = io();
 
   var $window = $(window);
   var $usernameInput = $('.usernameInput'); // Input for username
   var $loginPage = $('.login.page'); // The login page
-  var $chatPage = $('.scoreboard.page'); // The chatroom page
+  var $scorePage = $('.scoreboard.page'); // The chatroom page
   var $inputMessage = $('.inputMessage'); // Input message input box
   var $scores = $('.scoreboardArea'); // Input message input box
+  var $question = $('.questionArea'); // Input message input box
   var $currentInput = $usernameInput.focus();
 
   var username;
@@ -18,7 +22,7 @@ $(function() {
     // If the username is valid
     if (username) {
       $loginPage.fadeOut();
-      $chatPage.show();
+      $scorePage.show();
       $loginPage.off('click');
       $currentInput = $inputMessage.focus();
 
@@ -49,13 +53,21 @@ $(function() {
   });
 
   const updateScores = (users, options) => {
-   var table = $("<table/>");
+    var table = $("<table/>");
+    var thead = $("<thead/>");
+    var tr = $("<tr/>");
+    var tbody = $("<tbody/>");
+    tr.append($("<th/>").text("User"));
+    tr.append($("<th/>").text("Score"));
+    thead.append(tr);
+    table.append(thead);
     $.each(users,function(rowIndex, r) {
         var row = $("<tr/>");
         row.append($("<td/>").text(users[rowIndex].username));
         row.append($("<td/>").text(users[rowIndex].score));
-        table.append(row);
+        tbody.append(row);
     });
+    table.append(tbody);
     $scores.html(table);
     console.log(table);
   }
@@ -67,6 +79,20 @@ $(function() {
   
   socket.on('update state', (data) => {
     updateScores(data.users);
+
+    // Temporary
+    socket.emit('start game', 'test');
+  });
+
+  socket.on('question', (data) => {
+    console.log(data);
+
+    // Temporary user-generated answer
+    socket.emit('create_answer', "maddow");
+  });
+
+  socket.on('question_answers', (data) => {
+    console.log(data);
   });
 
   socket.on('disconnect', () => {
