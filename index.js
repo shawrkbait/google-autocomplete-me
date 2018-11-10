@@ -1,6 +1,7 @@
 var app = require('koa')(),
-	cookie = require('cookie'),
 	serve = require('koa-static'),
+        session = require('koa-session'),
+        cookie = require('cookie'),
         async = require('async');
     var request = require('request');
 var querystring = require('querystring');
@@ -8,6 +9,16 @@ var Sentencer = require('sentencer');
 
 const PORT = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 const IP = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
+
+app.keys = ['something secret'];
+app.use(session({},app));
+
+app.use(function *(next) {
+  if (typeof this.session.name === 'undefined') {
+    this.session.name = Math.round(Math.random() * 10000);
+  }
+  yield next;
+});
 
 app.use(serve('./public'));
 
@@ -26,6 +37,16 @@ var curQuestion = "";
 var gameRunning = false;
 var createAnswerTmout;
 var submitAnswerTmout;
+
+io.set("authorization", function(data, accept) {
+  if (data.headers.cookie && data.headers.cookie.indexOf('koa:sess') > -1) {
+    data.cookie = cookie.parse(data.headers.cookie)['koa:sess'];
+    data.name = JSON.parse(new Buffer(data.cookie, 'base64')).name;
+  } else {
+    return accept('No cookie transmitted.', false);
+  }
+  accept(null, true);
+});
 
 // TODO: allow max of 9 players
 
@@ -87,6 +108,9 @@ io.on('connection', function(socket) {
       onSubmitAnswer();
     }
   })
+
+  socket.on('sync', () => {
+  });
 
   socket.on('disconnect', () => {
     if (addedUser) {
