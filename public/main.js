@@ -1,19 +1,22 @@
 $(function() {
-  const CREATE_PAGE = 1;
-  const SELECT_PAGE = 2;
-  
   var socket = io();
 
   var $window = $(window);
   var $usernameInput = $('.usernameInput'); // Input for username
+  var $answerInput = $('.answerInput');
   var $loginPage = $('.login.page'); // The login page
-  var $scorePage = $('.scoreboard.page'); // The chatroom page
-  var $inputMessage = $('.inputMessage'); // Input message input box
-  var $scores = $('.scoreboardArea'); // Input message input box
-  var $question = $('.questionArea'); // Input message input box
+  var $questionPage = $('.question.page');
+  var $waitingPage = $('.waiting.page');
+  var $scorePage = $('.scoreboard.page'); 
+  var $scores = $('.scoreboardArea'); 
   var $currentInput = $usernameInput.focus();
 
   var username;
+  var qlen;
+
+  var curState = "question";
+
+  $answerInput.val("");
 
   // Sets the client's username
   const setUsername = () => {
@@ -24,7 +27,6 @@ $(function() {
       $loginPage.fadeOut();
       $scorePage.show();
       $loginPage.off('click');
-      $currentInput = $inputMessage.focus();
 
       // Tell the server your username
       socket.emit('add user', username);
@@ -46,11 +48,38 @@ $(function() {
     // When the client hits ENTER on their keyboard
     if (event.which === 13) {
       if (username) {
+        if(curState == "question") {
+          createAnswer();
+        }
+        else if(curState == "selectAnswer") {
+          selectAnswer();
+        }
       } else {
         setUsername();
       }
     }
   });
+
+  const createAnswer = () => {
+    var curVal = $answerInput.val();
+    curVal = cleanInput(curVal.substring(qlen));
+    console.log(curVal);
+    socket.emit('create_answer', curVal);
+    $questionPage.fadeOut();
+    $waitingPage.show();
+    $waitingPage.html("Waiting for everyone else");
+    $questionPage.off('click');
+  }
+
+  const selectAnswer = () => {
+    var curVal = $answerInput.val();
+    curVal = cleanInput(curVal.substring(qlen));
+    socket.emit('create_answer', curVal);
+    $questionPage.fadeOut();
+    $waitingPage.show();
+    $waitingPage.html("Waiting for everyone else");
+    $questionPage.off('click');
+  }
 
   const updateScores = (users, options) => {
     var table = $("<table/>");
@@ -72,27 +101,72 @@ $(function() {
     console.log(table);
   }
 
+  const showQuestion = (data) => {
+    console.log(data);
+
+    var readOnlyLength = data.question.length;
+    qlen = readOnlyLength;
+    $answerInput.val(data.question);
+
+    $answerInput.on('keypress, keydown', function(event) {
+      var $field = $(this);
+      if ((event.which != 37 && (event.which != 39))
+        && ((this.selectionStart < readOnlyLength)
+        || ((this.selectionStart == readOnlyLength) && (event.which == 8)))) {
+        return false;
+      }
+    });
+  }
+
+  const showAnswers = (data) => {
+    console.log(data);
+    var table = $("<table/>");
+    var tbody = $("<tbody/>");
+
+    $answerInput.prop('readonly', true);
+    $answerInput.val(data.question);
+    $waitingPage.fadeOut();
+
+    $.each(data.answers,function(rowIndex, r) {
+        var row = $("<tr/>");
+        row.append($("<td/>").text(data.question + data.answers[rowIndex]));
+
+        row.on('click', function() {
+          $answerInput.val(data.question + data.answers[rowIndex]);
+        });
+        tbody.append(row);
+    });
+    table.append(tbody);
+
+    $('.question.page #answerSelection').html(table);
+
+    $questionPage.show();
+  }
 
   socket.on('login', (data) => {
     console.log("Welcome!");
   });
   
   socket.on('update state', (data) => {
-    updateScores(data.users);
+    //updateScores(data.users);
 
     // Temporary
     socket.emit('start game', 'test');
   });
 
   socket.on('question', (data) => {
-    console.log(data);
+    curState = "question";
 
-    // Temporary user-generated answer
-    socket.emit('create_answer', "maddow");
+    $scorePage.hide();
+    $currentInput = $answerInput.focus();
+    showQuestion(data);
   });
 
-  socket.on('question_answers', (data) => {
-    console.log(data);
+  socket.on('select_answer', (data) => {
+    curState = "selectAnswer";
+
+    //$currentInput = $answerInput.focus();
+    showAnswers(data);
   });
 
   socket.on('disconnect', () => {
