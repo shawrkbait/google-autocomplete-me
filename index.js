@@ -1,4 +1,3 @@
-require('./public/const.js')
 var app = require('koa')(),
 	cookie = require('cookie'),
 	serve = require('koa-static'),
