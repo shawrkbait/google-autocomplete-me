@@ -10,6 +10,8 @@ var Hashmap = require('hashmap');
 const PORT = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 const IP = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
 
+const FAKE_ANSWER_POINTS = 2;
+
 app.use(serve('./public'));
 
 var server = require('http').Server(app.callback()),
@@ -159,6 +161,13 @@ function updateScores(users, user_final_answers) {
     console.log("ans = " + ans + ", score = " + score);
     if(ans && score) {
       users.set(u[i], users.get(u[i]) + score);
+    }
+    for(var j=0; j<user_answers.length; j++) {
+      var a2 = user_answers[j].answer;
+      var u2 = user_answers[j].username;
+      if(ans == a2) {
+        users.set(u2, users.get(u2) + FAKE_ANSWER_POINTS);
+      }
     }
   }
 }
