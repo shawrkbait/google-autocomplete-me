@@ -36,8 +36,11 @@ io.on('connection', function(socket) {
 
   socket.on('master', () => {
     console.log("Emitting update state " + users.entries());
-    socket.emit('update state', {
-      users: users.entries()
+    socket.emit("update_state", {
+      users: users.entries(),
+      state: "update_state",
+      question: curQuestion,
+      answers: answers
     });
   });
 
@@ -51,8 +54,9 @@ io.on('connection', function(socket) {
 
     // send to all
     console.log("Emitting update state " + users.entries());
-    io.emit('update state', {
-      users: users.entries()
+    io.emit("update_state", {
+      users: users.entries(),
+      state: "update_state"
     });
   });
 
@@ -109,7 +113,9 @@ function onCreateAnswer() {
   // Send subset of user answers + real answers
   var answers = generateAnswers(user_answers);
   console.log("Emitting select_answer");
-  io.emit("select_answer", {
+  io.emit("update_state", {
+    users: users.entries(),
+    state: "select_answer",
     question: curQuestion,
     answers: answers
   });
@@ -125,8 +131,9 @@ function onSubmitAnswerTmout() {
 function onSubmitAnswer() {
   updateScores(users,user_final_answers);
   console.log("Emitting update state");
-  io.emit('update state', {
-    users: users.entries()
+  io.emit('update_state', {
+    users: users.entries(),
+    state: "update_state"
   });
   gameRunning = false;
   clearTimeout(submitAnswerTmout);
@@ -210,13 +217,14 @@ function doGame() {
     function (err) {
       console.log("Real Answers = " + JSON.stringify(answers));
       real_answers = answers;
-      // TODO: store point values
       curQuestion = question;
       console.log("Emitting question");
-      io.emit("question", {
+
+      io.emit("update_state", {
+        users: users.entries(),
+        state: "question",
         question: curQuestion
       });
-
 
       // wait for answer creation
       createAnswerTmout = setTimeout(onCreateAnswerTmout, answerTimeout * 1000);
@@ -233,13 +241,13 @@ function doGameTest() {
 
     console.log("Real Answers = " + JSON.stringify(answers));
     real_answers = answers;
-    // TODO: store point values
     curQuestion = question;
     console.log("Emitting question");
-    io.emit("question", {
+    io.emit("update_state", {
+      users: users.entries(),
+      state: "question",
       question: curQuestion
     });
-
 
     // wait for answer creation
     createAnswerTmout = setTimeout(onCreateAnswerTmout, answerTimeout * 1000);

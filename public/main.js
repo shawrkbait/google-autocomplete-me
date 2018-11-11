@@ -37,7 +37,6 @@ $(function() {
     return $('<div/>').text(input).html();
   }
 
-
   // Keyboard events
 
   $window.keydown(event => {
@@ -51,7 +50,7 @@ $(function() {
         if(curState == "question") {
           createAnswer();
         }
-        else if(curState == "selectAnswer") {
+        else if(curState == "select_answer") {
           selectAnswer();
         }
       } else {
@@ -151,33 +150,31 @@ $(function() {
     console.log("Welcome!");
   });
   
-  socket.on('update state', (data) => {
-    console.log(data.users);
-    updateScores(data.users);
+  socket.on('update_state', (data) => {
+    curState = data.state;
 
-    $waitingPage.fadeOut();
-    $scorePage.show();
-    var but = $('<input type="button" value="start game"/>');
-    but.on('click', function() {
-      console.log("Emitting start game");
-      socket.emit('start game', 'test');
-    });
-    $('.startGameArea').html(but);
-  });
+    if(data.state == "update_state") {
+      console.log(data.users);
+      updateScores(data.users);
 
-  socket.on('question', (data) => {
-    curState = "question";
-
-    $('.question.page #answerSelection').html("");
-    $currentInput = $answerInput.focus();
-    showQuestion(data);
-  });
-
-  socket.on('select_answer', (data) => {
-    curState = "selectAnswer";
-
-    $currentInput = $answerInput.focus();
-    showAnswers(data);
+      $waitingPage.fadeOut();
+      $scorePage.show();
+      var but = $('<input type="button" value="start game"/>');
+      but.on('click', function() {
+        console.log("Emitting start game");
+        socket.emit('start game', 'test');
+      });
+      $('.startGameArea').html(but);
+    }
+    else if(data.state == "question") {
+      $('.question.page #answerSelection').html("");
+      $currentInput = $answerInput.focus();
+      showQuestion(data);
+    }
+    else if(data.state == "select_answer") {
+      $currentInput = $answerInput.focus();
+      showAnswers(data);
+    }
   });
 
   socket.on('disconnect', () => {
