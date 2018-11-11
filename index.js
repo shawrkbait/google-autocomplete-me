@@ -5,6 +5,7 @@ var app = require('koa')(),
     var request = require('request');
 var querystring = require('querystring');
 var Sentencer = require('sentencer');
+var Hashmap = require('hashmap');
 
 const PORT = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 const IP = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
@@ -17,10 +18,11 @@ var server = require('http').Server(app.callback()),
 var answerTimeout = 15;
 
 // Store array of user data
-var users = [];
+var users = new Hashmap();
 var user_answers = [];
-var user_final_answers = [];
+var user_final_answers = new Hashmap();
 var real_answers = [];
+var score_map = new Hashmap();
 
 var curQuestion = "";
 var gameRunning = false;
@@ -33,9 +35,9 @@ io.on('connection', function(socket) {
   var addedUser = false;
 
   socket.on('master', () => {
-    console.log("Emitting update state");
+    console.log("Emitting update state " + users.entries());
     socket.emit('update state', {
-      users: users
+      users: users.entries()
     });
   });
 
@@ -44,21 +46,21 @@ io.on('connection', function(socket) {
 
     socket.username = username;
     console.log(socket.username + " joined");
-    users.push({ 
-      username: username,
-      score: 0 
-    });
+    users.set(username, 0);
     addedUser = true;
 
     // send to all
-    console.log("Emitting update state");
+    console.log("Emitting update state " + users.entries());
     io.emit('update state', {
-      users: users
+      users: users.entries()
     });
   });
 
   socket.on('start game', () => {
     if(gameRunning) return;
+    user_answers = [];
+    user_final_answers = new Hashmap();
+    score_map = new Hashmap();
     console.log("Game started by " + socket.username);
     gameRunning = true;
 
@@ -73,21 +75,18 @@ io.on('connection', function(socket) {
       answer: answer
     });
 
-    console.log(user_answers.length + " of " + users.length);
-    if (users.length == user_answers.length) {
+    console.log(user_answers.length + " of " + users.size);
+    if (users.size == user_answers.length) {
       onCreateAnswer();
     }
   })
 
   socket.on('submit_answer', (answer) => {
     console.log(socket.username + " submitted \"" + answer + "\"");
-    user_final_answers.push({
-      username: socket.username,
-      answer: answer
-    });
+    user_final_answers.set(socket.username, answer);
 
-    console.log(user_final_answers.length + " of " + users.length);
-    if (users.length == user_final_answers.length) {
+    console.log(user_final_answers.size + " of " + users.size);
+    if (users.size == user_final_answers.size) {
       onSubmitAnswer();
     }
   })
@@ -127,10 +126,8 @@ function onSubmitAnswer() {
   updateScores(users,user_final_answers);
   console.log("Emitting update state");
   io.emit('update state', {
-    users: users
+    users: users.entries()
   });
-  user_answers = [];
-  user_final_answers = [];
   gameRunning = false;
   clearTimeout(submitAnswerTmout);
 } 
@@ -138,15 +135,25 @@ function onSubmitAnswer() {
 function generateAnswers(user_answers) { 
   var shuffled_ar = real_answers.slice(0,10-user_answers.length);
 
-  for(var i=user_answers.length -1; i>=0; i--) {
+  for(var i=0; i<shuffled_ar.length; i++) {
+    score_map.set(shuffled_ar[i], 10 - i);
+  }
+  for(var i=0; i<user_answers.length; i++) {
     shuffled_ar.push(user_answers[i].answer);
   }
-  // TODO: randomize order
   return shuffle(shuffled_ar);
 }
 
 function updateScores(users, user_final_answers) {
-  
+  var u = users.keys();
+  for(var i=0; i<u.length; i++) {
+    var ans = user_final_answers.get(u[i]);
+    var score = score_map.get(ans);
+    console.log("ans = " + ans + ", score = " + score);
+    if(ans && score) {
+      users.set(u[i], users.get(u[i]) + score);
+    }
+  }
 }
 
 function shuffle(array) {
@@ -219,7 +226,6 @@ function doGame() {
 function randomQuestion() {
   return Sentencer.make("why does {{ name }}");
 }
-  
 
 function doGameTest() {
     var question = "why does harold";
@@ -229,7 +235,7 @@ function doGameTest() {
     real_answers = answers;
     // TODO: store point values
     curQuestion = question;
-      console.log("Emitting question");
+    console.log("Emitting question");
     io.emit("question", {
       question: curQuestion
     });

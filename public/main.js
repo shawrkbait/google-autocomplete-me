@@ -93,8 +93,8 @@ $(function() {
     table.append(thead);
     $.each(users,function(rowIndex, r) {
         var row = $("<tr/>");
-        row.append($("<td/>").text(users[rowIndex].username));
-        row.append($("<td/>").text(users[rowIndex].score));
+        row.append($("<td/>").text(users[rowIndex][0]));
+        row.append($("<td/>").text(users[rowIndex][1]));
         tbody.append(row);
     });
     table.append(tbody);
@@ -151,6 +151,7 @@ $(function() {
   });
   
   socket.on('update state', (data) => {
+    console.log(data.users);
     updateScores(data.users);
 
     $waitingPage.fadeOut();
