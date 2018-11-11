@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "async": "^2.6.1",
+    "hashmap": "^2.3.0",
     "koa": "1.6.2",
     "koa-static": "1.5.3",
     "koa-session": "4.8.0",

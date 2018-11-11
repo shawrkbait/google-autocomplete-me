@@ -37,7 +37,6 @@ $(function() {
     return $('<div/>').text(input).html();
   }
 
-
   // Keyboard events
 
   $window.keydown(event => {
@@ -51,7 +50,7 @@ $(function() {
         if(curState == "question") {
           createAnswer();
         }
-        else if(curState == "selectAnswer") {
+        else if(curState == "select_answer") {
           selectAnswer();
         }
       } else {
@@ -63,9 +62,9 @@ $(function() {
   const createAnswer = () => {
     var curVal = $answerInput.val();
     curVal = cleanInput(curVal.substring(qlen));
-    console.log(curVal);
+    console.log("Emitting create_answer: " + curVal);
     socket.emit('create_answer', curVal);
-    $questionPage.fadeOut();
+    $answerInput.val("");
     $waitingPage.show();
     $waitingPage.html("Waiting for everyone else");
     $questionPage.off('click');
@@ -74,7 +73,8 @@ $(function() {
   const selectAnswer = () => {
     var curVal = $answerInput.val();
     curVal = cleanInput(curVal.substring(qlen));
-    socket.emit('create_answer', curVal);
+    console.log("Emitting submit_answer " + curVal);
+    socket.emit('submit_answer', curVal);
     $questionPage.fadeOut();
     $waitingPage.show();
     $waitingPage.html("Waiting for everyone else");
@@ -82,6 +82,7 @@ $(function() {
   }
 
   const updateScores = (users, options) => {
+    var sorted_users = users.sort(function(a,b) {return b[1] - a[1]});
     var table = $("<table/>");
     var thead = $("<thead/>");
     var tr = $("<tr/>");
@@ -90,10 +91,10 @@ $(function() {
     tr.append($("<th/>").text("Score"));
     thead.append(tr);
     table.append(thead);
-    $.each(users,function(rowIndex, r) {
+    $.each(sorted_users,function(rowIndex, r) {
         var row = $("<tr/>");
-        row.append($("<td/>").text(users[rowIndex].username));
-        row.append($("<td/>").text(users[rowIndex].score));
+        row.append($("<td/>").text(sorted_users[rowIndex][0]));
+        row.append($("<td/>").text(sorted_users[rowIndex][1]));
         tbody.append(row);
     });
     table.append(tbody);
@@ -102,10 +103,13 @@ $(function() {
   }
 
   const showQuestion = (data) => {
+    $scorePage.hide();
+    $questionPage.show();
     console.log(data);
 
     var readOnlyLength = data.question.length;
     qlen = readOnlyLength;
+    $answerInput.prop('readonly', false);
     $answerInput.val(data.question);
 
     $answerInput.on('keypress, keydown', function(event) {
@@ -119,13 +123,13 @@ $(function() {
   }
 
   const showAnswers = (data) => {
-    console.log(data);
+    $waitingPage.fadeOut();
+    $questionPage.show();
     var table = $("<table/>");
     var tbody = $("<tbody/>");
 
     $answerInput.prop('readonly', true);
     $answerInput.val(data.question);
-    $waitingPage.fadeOut();
 
     $.each(data.answers,function(rowIndex, r) {
         var row = $("<tr/>");
@@ -137,36 +141,40 @@ $(function() {
         tbody.append(row);
     });
     table.append(tbody);
+    console.log(data);
 
     $('.question.page #answerSelection').html(table);
-
-    $questionPage.show();
   }
 
   socket.on('login', (data) => {
     console.log("Welcome!");
   });
   
-  socket.on('update state', (data) => {
-    //updateScores(data.users);
+  socket.on('update_state', (data) => {
+    curState = data.state;
 
-    // Temporary
-    socket.emit('start game', 'test');
-  });
+    if(data.state == "update_state") {
+      console.log(data.users);
+      updateScores(data.users);
 
-  socket.on('question', (data) => {
-    curState = "question";
-
-    $scorePage.hide();
-    $currentInput = $answerInput.focus();
-    showQuestion(data);
-  });
-
-  socket.on('select_answer', (data) => {
-    curState = "selectAnswer";
-
-    //$currentInput = $answerInput.focus();
-    showAnswers(data);
+      $waitingPage.fadeOut();
+      $scorePage.show();
+      var but = $('<input type="button" value="start game"/>');
+      but.on('click', function() {
+        console.log("Emitting start game");
+        socket.emit('start game', 'test');
+      });
+      $('.startGameArea').html(but);
+    }
+    else if(data.state == "question") {
+      $('.question.page #answerSelection').html("");
+      $currentInput = $answerInput.focus();
+      showQuestion(data);
+    }
+    else if(data.state == "select_answer") {
+      $currentInput = $answerInput.focus();
+      showAnswers(data);
+    }
   });
 
   socket.on('disconnect', () => {

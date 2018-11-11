@@ -6,6 +6,7 @@ var app = require('koa')(),
     var request = require('request');
 var querystring = require('querystring');
 var Sentencer = require('sentencer');
+var Hashmap = require('hashmap');
 
 const PORT = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 const IP = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
@@ -25,13 +26,14 @@ app.use(serve('./public'));
 var server = require('http').Server(app.callback()),
 	io = require('socket.io')(server);
 
-var answerTimeout = 5;
+var answerTimeout = 15;
 
 // Store array of user data
-var users = [];
+var users = new Hashmap();
 var user_answers = [];
-var user_final_answers = [];
+var user_final_answers = new Hashmap();
 var real_answers = [];
+var score_map = new Hashmap();
 
 var curQuestion = "";
 var gameRunning = false;
@@ -54,8 +56,12 @@ io.on('connection', function(socket) {
   var addedUser = false;
 
   socket.on('master', () => {
-    socket.emit('update state', {
-      users: users
+    console.log("Emitting update state " + users.entries());
+    socket.emit("update_state", {
+      users: users.entries(),
+      state: "update_state",
+      question: curQuestion,
+      answers: answers
     });
   });
 
@@ -64,20 +70,22 @@ io.on('connection', function(socket) {
 
     socket.username = username;
     console.log(socket.username + " joined");
-    users.push({ 
-      username: username,
-      score: 0 
-    });
+    users.set(username, 0);
     addedUser = true;
 
     // send to all
-    io.emit('update state', {
-      users: users
+    console.log("Emitting update state " + users.entries());
+    io.emit("update_state", {
+      users: users.entries(),
+      state: "update_state"
     });
   });
 
   socket.on('start game', () => {
     if(gameRunning) return;
+    user_answers = [];
+    user_final_answers = new Hashmap();
+    score_map = new Hashmap();
     console.log("Game started by " + socket.username);
     gameRunning = true;
 
@@ -92,19 +100,18 @@ io.on('connection', function(socket) {
       answer: answer
     });
 
-    console.log(user_answers.length + " of " + users.length);
-    if (users.length == user_answers.length) {
+    console.log(user_answers.length + " of " + users.size);
+    if (users.size == user_answers.length) {
       onCreateAnswer();
     }
   })
 
   socket.on('submit_answer', (answer) => {
-    user_final_answers.push({
-      username: socket.username,
-      answer: answer
-    });
+    console.log(socket.username + " submitted \"" + answer + "\"");
+    user_final_answers.set(socket.username, answer);
 
-    if (users.length == user_final_answers.length) {
+    console.log(user_final_answers.size + " of " + users.size);
+    if (users.size == user_final_answers.size) {
       onSubmitAnswer();
     }
   })
@@ -122,14 +129,17 @@ io.on('connection', function(socket) {
 });
 
 function onCreateAnswerTmout() {
-  console.log("Timed out");
+  console.log("Step 1 Timed out");
   onCreateAnswer();
 }
 
 function onCreateAnswer() {
   // Send subset of user answers + real answers
   var answers = generateAnswers(user_answers);
-  io.emit("select_answer", {
+  console.log("Emitting select_answer");
+  io.emit("update_state", {
+    users: users.entries(),
+    state: "select_answer",
     question: curQuestion,
     answers: answers
   });
@@ -137,34 +147,44 @@ function onCreateAnswer() {
   submitAnswerTmout = setTimeout(onSubmitAnswerTmout, answerTimeout * 1000);
 } 
 
-function onSubmitAnswerTmout(socket) {
-  console.log("Timed out");
+function onSubmitAnswerTmout() {
+  console.log("Step 2 Timed out");
   onSubmitAnswer();
 }
 
 function onSubmitAnswer() {
   updateScores(users,user_final_answers);
-  io.emit('update state', {
-    users: users
+  console.log("Emitting update state");
+  io.emit('update_state', {
+    users: users.entries(),
+    state: "update_state"
   });
-  user_answers = [];
-  user_final_answers = [];
-  //gameRunning = false;
+  gameRunning = false;
   clearTimeout(submitAnswerTmout);
 } 
 
 function generateAnswers(user_answers) { 
   var shuffled_ar = real_answers.slice(0,10-user_answers.length);
 
-  for(var i=user_answers.length -1; i>=0; i--) {
+  for(var i=0; i<shuffled_ar.length; i++) {
+    score_map.set(shuffled_ar[i], 10 - i);
+  }
+  for(var i=0; i<user_answers.length; i++) {
     shuffled_ar.push(user_answers[i].answer);
   }
-  // TODO: randomize order
   return shuffle(shuffled_ar);
 }
 
 function updateScores(users, user_final_answers) {
-  
+  var u = users.keys();
+  for(var i=0; i<u.length; i++) {
+    var ans = user_final_answers.get(u[i]);
+    var score = score_map.get(ans);
+    console.log("ans = " + ans + ", score = " + score);
+    if(ans && score) {
+      users.set(u[i], users.get(u[i]) + score);
+    }
+  }
 }
 
 function shuffle(array) {
@@ -221,12 +241,14 @@ function doGame() {
     function (err) {
       console.log("Real Answers = " + JSON.stringify(answers));
       real_answers = answers;
-      // TODO: store point values
       curQuestion = question;
-      io.emit("question", {
+      console.log("Emitting question");
+
+      io.emit("update_state", {
+        users: users.entries(),
+        state: "question",
         question: curQuestion
       });
-
 
       // wait for answer creation
       createAnswerTmout = setTimeout(onCreateAnswerTmout, answerTimeout * 1000);
@@ -236,7 +258,6 @@ function doGame() {
 function randomQuestion() {
   return Sentencer.make("why does {{ name }}");
 }
-  
 
 function doGameTest() {
     var question = "why does harold";
@@ -244,12 +265,13 @@ function doGameTest() {
 
     console.log("Real Answers = " + JSON.stringify(answers));
     real_answers = answers;
-    // TODO: store point values
     curQuestion = question;
-    io.emit("question", {
+    console.log("Emitting question");
+    io.emit("update_state", {
+      users: users.entries(),
+      state: "question",
       question: curQuestion
     });
-
 
     // wait for answer creation
     createAnswerTmout = setTimeout(onCreateAnswerTmout, answerTimeout * 1000);
