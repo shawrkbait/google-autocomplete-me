@@ -30,6 +30,7 @@ var curQuestion = "";
 var gameRunning = false;
 var createAnswerTmout;
 var submitAnswerTmout;
+var curState = "";
 
 // TODO: allow max of 9 players
 
@@ -40,7 +41,7 @@ io.on('connection', function(socket) {
     console.log("Emitting update state " + users.entries());
     socket.emit("update_state", {
       users: users.entries(),
-      state: "update_state",
+      state: "between_games",
       question: curQuestion,
       answers: answers
     });
@@ -58,7 +59,7 @@ io.on('connection', function(socket) {
     console.log("Emitting update state " + users.entries());
     io.emit("update_state", {
       users: users.entries(),
-      state: "update_state"
+      state: "between_games"
     });
   });
 
@@ -135,7 +136,7 @@ function onSubmitAnswer() {
   console.log("Emitting update state");
   io.emit('update_state', {
     users: users.entries(),
-    state: "update_state"
+    state: "between_games"
   });
   gameRunning = false;
   clearTimeout(submitAnswerTmout);

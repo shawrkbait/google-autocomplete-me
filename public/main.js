@@ -153,7 +153,7 @@ $(function() {
   socket.on('update_state', (data) => {
     curState = data.state;
 
-    if(data.state == "update_state") {
+    if(data.state == "between_games") {
       console.log(data.users);
       updateScores(data.users);
 
