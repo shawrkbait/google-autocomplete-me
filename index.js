@@ -14,7 +14,7 @@ app.use(serve('./public'));
 var server = require('http').Server(app.callback()),
 	io = require('socket.io')(server);
 
-var answerTimeout = 5;
+var answerTimeout = 15;
 
 // Store array of user data
 var users = [];
@@ -33,6 +33,7 @@ io.on('connection', function(socket) {
   var addedUser = false;
 
   socket.on('master', () => {
+    console.log("Emitting update state");
     socket.emit('update state', {
       users: users
     });
@@ -50,6 +51,7 @@ io.on('connection', function(socket) {
     addedUser = true;
 
     // send to all
+    console.log("Emitting update state");
     io.emit('update state', {
       users: users
     });
@@ -78,11 +80,13 @@ io.on('connection', function(socket) {
   })
 
   socket.on('submit_answer', (answer) => {
+    console.log(socket.username + " submitted \"" + answer + "\"");
     user_final_answers.push({
       username: socket.username,
       answer: answer
     });
 
+    console.log(user_final_answers.length + " of " + users.length);
     if (users.length == user_final_answers.length) {
       onSubmitAnswer();
     }
@@ -98,13 +102,14 @@ io.on('connection', function(socket) {
 });
 
 function onCreateAnswerTmout() {
-  console.log("Timed out");
+  console.log("Step 1 Timed out");
   onCreateAnswer();
 }
 
 function onCreateAnswer() {
   // Send subset of user answers + real answers
   var answers = generateAnswers(user_answers);
+  console.log("Emitting select_answer");
   io.emit("select_answer", {
     question: curQuestion,
     answers: answers
@@ -113,19 +118,20 @@ function onCreateAnswer() {
   submitAnswerTmout = setTimeout(onSubmitAnswerTmout, answerTimeout * 1000);
 } 
 
-function onSubmitAnswerTmout(socket) {
-  console.log("Timed out");
+function onSubmitAnswerTmout() {
+  console.log("Step 2 Timed out");
   onSubmitAnswer();
 }
 
 function onSubmitAnswer() {
   updateScores(users,user_final_answers);
+  console.log("Emitting update state");
   io.emit('update state', {
     users: users
   });
   user_answers = [];
   user_final_answers = [];
-  //gameRunning = false;
+  gameRunning = false;
   clearTimeout(submitAnswerTmout);
 } 
 
@@ -199,6 +205,7 @@ function doGame() {
       real_answers = answers;
       // TODO: store point values
       curQuestion = question;
+      console.log("Emitting question");
       io.emit("question", {
         question: curQuestion
       });
@@ -222,6 +229,7 @@ function doGameTest() {
     real_answers = answers;
     // TODO: store point values
     curQuestion = question;
+      console.log("Emitting question");
     io.emit("question", {
       question: curQuestion
     });

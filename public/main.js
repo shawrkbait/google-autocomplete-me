@@ -63,9 +63,9 @@ $(function() {
   const createAnswer = () => {
     var curVal = $answerInput.val();
     curVal = cleanInput(curVal.substring(qlen));
-    console.log(curVal);
+    console.log("Emitting create_answer: " + curVal);
     socket.emit('create_answer', curVal);
-    $questionPage.fadeOut();
+    $answerInput.val("");
     $waitingPage.show();
     $waitingPage.html("Waiting for everyone else");
     $questionPage.off('click');
@@ -74,7 +74,8 @@ $(function() {
   const selectAnswer = () => {
     var curVal = $answerInput.val();
     curVal = cleanInput(curVal.substring(qlen));
-    socket.emit('create_answer', curVal);
+    console.log("Emitting submit_answer " + curVal);
+    socket.emit('submit_answer', curVal);
     $questionPage.fadeOut();
     $waitingPage.show();
     $waitingPage.html("Waiting for everyone else");
@@ -102,10 +103,13 @@ $(function() {
   }
 
   const showQuestion = (data) => {
+    $scorePage.hide();
+    $questionPage.show();
     console.log(data);
 
     var readOnlyLength = data.question.length;
     qlen = readOnlyLength;
+    $answerInput.prop('readonly', false);
     $answerInput.val(data.question);
 
     $answerInput.on('keypress, keydown', function(event) {
@@ -119,13 +123,13 @@ $(function() {
   }
 
   const showAnswers = (data) => {
-    console.log(data);
+    $waitingPage.fadeOut();
+    $questionPage.show();
     var table = $("<table/>");
     var tbody = $("<tbody/>");
 
     $answerInput.prop('readonly', true);
     $answerInput.val(data.question);
-    $waitingPage.fadeOut();
 
     $.each(data.answers,function(rowIndex, r) {
         var row = $("<tr/>");
@@ -137,10 +141,9 @@ $(function() {
         tbody.append(row);
     });
     table.append(tbody);
+    console.log(data);
 
     $('.question.page #answerSelection').html(table);
-
-    $questionPage.show();
   }
 
   socket.on('login', (data) => {
@@ -148,16 +151,22 @@ $(function() {
   });
   
   socket.on('update state', (data) => {
-    //updateScores(data.users);
+    updateScores(data.users);
 
-    // Temporary
-    socket.emit('start game', 'test');
+    $waitingPage.fadeOut();
+    $scorePage.show();
+    var but = $('<input type="button" value="start game"/>');
+    but.on('click', function() {
+      console.log("Emitting start game");
+      socket.emit('start game', 'test');
+    });
+    $('.startGameArea').html(but);
   });
 
   socket.on('question', (data) => {
     curState = "question";
 
-    $scorePage.hide();
+    $('.question.page #answerSelection').html("");
     $currentInput = $answerInput.focus();
     showQuestion(data);
   });
@@ -165,7 +174,7 @@ $(function() {
   socket.on('select_answer', (data) => {
     curState = "selectAnswer";
 
-    //$currentInput = $answerInput.focus();
+    $currentInput = $answerInput.focus();
     showAnswers(data);
   });
 
