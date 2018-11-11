@@ -83,6 +83,7 @@ $(function() {
   }
 
   const updateScores = (users, options) => {
+    var sorted_users = users.sort(function(a,b) {return b[1] - a[1]});
     var table = $("<table/>");
     var thead = $("<thead/>");
     var tr = $("<tr/>");
@@ -91,10 +92,10 @@ $(function() {
     tr.append($("<th/>").text("Score"));
     thead.append(tr);
     table.append(thead);
-    $.each(users,function(rowIndex, r) {
+    $.each(sorted_users,function(rowIndex, r) {
         var row = $("<tr/>");
-        row.append($("<td/>").text(users[rowIndex][0]));
-        row.append($("<td/>").text(users[rowIndex][1]));
+        row.append($("<td/>").text(sorted_users[rowIndex][0]));
+        row.append($("<td/>").text(sorted_users[rowIndex][1]));
         tbody.append(row);
     });
     table.append(tbody);
