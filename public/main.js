@@ -68,24 +68,22 @@ $(function() {
     console.log("Emitting create_answer: " + curVal);
     socket.emit('create_answer', curVal);
     $answerInput.val("");
-    $(".page:not(.waiting)").fadeOut();
     $waitingPage.show();
-    $waitingPage.html("Waiting for everyone else");
     $questionPage.off('click');
   }
 
   const selectAnswer = () => {
     var curVal = $answerInput.val();
     curVal = cleanInput(curVal.substring(qlen));
-    console.log("Emitting submit_answer " + curVal);
+    console.log("Emitting submit_answer: " + curVal);
     socket.emit('submit_answer', curVal);
-    $(".page:not(.waiting)").fadeOut();
+    $answerInput.val("");
     $waitingPage.show();
-    $waitingPage.html("Waiting for everyone else");
     $questionPage.off('click');
   }
 
   const updateScores = (users, options) => {
+    console.log("updateScores: " + users);
     var sorted_users = users.sort(function(a,b) {return b[1] - a[1]});
     var table = $("<table/>");
     var thead = $("<thead/>");
@@ -103,13 +101,14 @@ $(function() {
     });
     table.append(tbody);
     $scores.html(table);
-    console.log(table);
   }
 
   const showQuestion = (data) => {
+    console.log("showQuestion: " + JSON.stringify(data));
+    $currentInput = $answerInput.focus();
+    $('.question.page #answerSelection').html("");
     $(".page:not(.question)").hide();
     $questionPage.show();
-    console.log(data);
 
     var readOnlyLength = data.question.length;
     qlen = readOnlyLength;
@@ -127,6 +126,7 @@ $(function() {
   }
 
   const showAnswers = (data) => {
+    console.log("showAnswers: " + JSON.stringify(data));
     $waitingPage.fadeOut();
     $questionPage.show();
     var table = $("<table/>");
@@ -145,7 +145,6 @@ $(function() {
         tbody.append(row);
     });
     table.append(tbody);
-    console.log(data);
 
     $('.question.page #answerSelection').html(table);
   }
@@ -167,10 +166,9 @@ $(function() {
       $loginPage.show();
     }
     else if(data.state == "between_games") {
-      console.log(data.users);
       updateScores(data.users);
 
-      $waitingPage.fadeOut();
+      $(".page:not(.scoreboard)").fadeOut();
       $scorePage.show();
       var but = $('<input type="button" value="start game"/>');
       but.on('click', function() {
@@ -180,12 +178,9 @@ $(function() {
       $('.startGameArea').html(but);
     }
     else if(data.state == "question") {
-      $('.question.page #answerSelection').html("");
-      $currentInput = $answerInput.focus();
       showQuestion(data);
     }
     else if(data.state == "select_answer") {
-      $currentInput = $answerInput.focus();
       showAnswers(data);
     }
   });
