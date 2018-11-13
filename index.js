@@ -205,10 +205,10 @@ function updateScores(users, user_final_answers) {
     if(ans && score) {
       users.set(u[i], users.get(u[i]) + score);
     }
-    var user_answer_entries = user_final_answers.entries();
+    var user_answer_entries = user_answers.entries();
     for(var j=0; j<user_answer_entries.length; j++) {
-      var a2 = user_answers[j][1];
-      var u2 = user_answers[j][0];
+      var a2 = user_answer_entries[j][1];
+      var u2 = user_answer_entries[j][0];
       if(ans == a2) {
         users.set(u2, users.get(u2) + FAKE_ANSWER_POINTS);
       }
