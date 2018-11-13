@@ -68,6 +68,7 @@ $(function() {
     console.log("Emitting create_answer: " + curVal);
     socket.emit('create_answer', curVal);
     $answerInput.val("");
+    $questionPage.hide();
     $waitingPage.show();
     $questionPage.off('click');
   }
@@ -78,6 +79,7 @@ $(function() {
     console.log("Emitting submit_answer: " + curVal);
     socket.emit('submit_answer', curVal);
     $answerInput.val("");
+    $questionPage.hide();
     $waitingPage.show();
     $questionPage.off('click');
   }
