@@ -58,3 +58,7 @@
 #answerSelection table tr:hover {
   background-color: #ccc;
 }
+
+#gamename {
+  font-size: 60px;
+}
