@@ -18,6 +18,9 @@ $(function() {
 
   $answerInput.val("");
 
+  // Check if we already have a session
+  socket.emit('add user', );
+
   // Sets the client's username
   const setUsername = () => {
     username = cleanInput($usernameInput.val().trim());
@@ -65,6 +68,7 @@ $(function() {
     console.log("Emitting create_answer: " + curVal);
     socket.emit('create_answer', curVal);
     $answerInput.val("");
+    $(".page:not(.waiting)").fadeOut();
     $waitingPage.show();
     $waitingPage.html("Waiting for everyone else");
     $questionPage.off('click');
@@ -75,7 +79,7 @@ $(function() {
     curVal = cleanInput(curVal.substring(qlen));
     console.log("Emitting submit_answer " + curVal);
     socket.emit('submit_answer', curVal);
-    $questionPage.fadeOut();
+    $(".page:not(.waiting)").fadeOut();
     $waitingPage.show();
     $waitingPage.html("Waiting for everyone else");
     $questionPage.off('click');
@@ -103,7 +107,7 @@ $(function() {
   }
 
   const showQuestion = (data) => {
-    $scorePage.hide();
+    $(".page:not(.question)").hide();
     $questionPage.show();
     console.log(data);
 
@@ -149,11 +153,20 @@ $(function() {
   socket.on('login', (data) => {
     console.log("Welcome!");
   });
-  
+
+  // We may already have a username assigned on the server
+  socket.on('set_username', (data) => {
+    username = data.username;
+  });
+ 
   socket.on('update_state', (data) => {
     curState = data.state;
 
-    if(data.state == "between_games") {
+    if(data.state == "login_required") {
+      $(".page:not(.login)").hide();
+      $loginPage.show();
+    }
+    else if(data.state == "between_games") {
       console.log(data.users);
       updateScores(data.users);
 
