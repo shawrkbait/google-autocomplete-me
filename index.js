@@ -119,7 +119,13 @@ io.on('connection', function(socket) {
   //Process someone's answer
   socket.on('create_answer', (answer) => {
     console.log(socket.username + " answered \"" + answer + "\"");
-    user_answers.set(socket.username, answer);
+
+    /* Make all answers look googly
+     *  convert to lowercase and remove punctuation
+     */
+    var mangledA = answer.toLowerCase();
+    mangledA = mangledA.replace(/[\?\.\!]$/gi,"");
+    user_answers.set(socket.username, mangledA);
 
     console.log(user_answers.size + " of " + users.size);
     if (users.size == user_answers.size) {
@@ -191,6 +197,8 @@ function generateAnswers(user_answers) {
   }
   var answer_set = user_answers.values();
   for(var i=0; i<answer_set.length; i++) {
+    // Dedup
+    if(score_map.get(answer_set[i])) continue;
     shuffled_ar.push(answer_set[i]);
   }
   return shuffle(shuffled_ar);
