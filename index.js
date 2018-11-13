@@ -32,7 +32,7 @@ var answerTimeout = 15;
 // Store array of user data
 var users = new Hashmap();
 var user_final_answers = new Hashmap();
-var user_answers = [];
+var user_answers = new Hashmap();
 var real_answers = [];
 var selectable_answers = []
 var score_map = new Hashmap();
@@ -49,6 +49,7 @@ io.set("authorization", function(data, accept) {
   if (data.headers.cookie && data.headers.cookie.indexOf('koa:sess') > -1) {
     data.cookie = cookie.parse(data.headers.cookie)['koa:sess'];
     data.name = JSON.parse(new Buffer(data.cookie, 'base64')).name;
+
     console.log(data.name);
   } else {
     return accept('No cookie transmitted.', false);
@@ -59,20 +60,40 @@ io.set("authorization", function(data, accept) {
 io.on('connection', function(socket) {
 
   socket.on('add user', (username) => {
-    if(users.get(username)) return;
-
-    // map session id to a username
-    session_users.set(socket.request.name, username);
-    socket.username = username;
-    console.log(socket.username + " joined");
-    users.set(username, 0);
-
-    // send to all
-    console.log("Emitting update state " + users.entries());
+    var uname = session_users.get(socket.request.name);
+    // user is checking for session
+    if(uname) {
+      socket.username = uname;
+      console.log("Emitting set_username: " + uname);
+      socket.emit("set_username", {
+        username: uname
+      });
+    }
+    else if(typeof username === 'undefined') {
+      socket.emit("update_state", {state: "login_required"});
+      return;
+    }
+    else {
+      // map session id to a username
+      session_users.set(socket.request.name, username);
+      socket.username = username;
+      console.log(socket.username + " joined");
+      users.set(username, 0);
+    }
+    console.log("Emitting update state (" + curState + ") " + users.entries());
     if(curState == "between_games") {
+      // send to all
       io.emit("update_state", {
         users: users.entries(),
         state: curState
+      });
+    }
+    else if(curState == "select_answer") {
+      io.emit("update_state", {
+        users: users.entries(),
+        state: curState,
+        question: curQuestion,
+        answers: selectable_answers
       });
     }
     else {
@@ -86,7 +107,7 @@ io.on('connection', function(socket) {
 
   socket.on('start game', () => {
     if(curState != "between_games") return;
-    user_answers = [];
+    user_answers = new Hashmap();
     selectable_answers = [];
     user_final_answers = new Hashmap();
     score_map = new Hashmap();
@@ -98,13 +119,10 @@ io.on('connection', function(socket) {
   //Process someone's answer
   socket.on('create_answer', (answer) => {
     console.log(socket.username + " answered \"" + answer + "\"");
-    user_answers.push({
-      username: socket.username,
-      answer: answer
-    });
+    user_answers.set(socket.username, answer);
 
-    console.log(user_answers.length + " of " + users.size);
-    if (users.size == user_answers.length) {
+    console.log(user_answers.size + " of " + users.size);
+    if (users.size == user_answers.size) {
       onCreateAnswer();
     }
   })
@@ -166,13 +184,14 @@ function onSubmitAnswer() {
 } 
 
 function generateAnswers(user_answers) { 
-  var shuffled_ar = real_answers.slice(0,10-user_answers.length);
+  var shuffled_ar = real_answers.slice(0,10-user_answers.size);
 
   for(var i=0; i<shuffled_ar.length; i++) {
     score_map.set(shuffled_ar[i], 10 - i);
   }
-  for(var i=0; i<user_answers.length; i++) {
-    shuffled_ar.push(user_answers[i].answer);
+  var answer_set = user_answers.values();
+  for(var i=0; i<answer_set.length; i++) {
+    shuffled_ar.push(answer_set[i]);
   }
   return shuffle(shuffled_ar);
 }
@@ -186,9 +205,10 @@ function updateScores(users, user_final_answers) {
     if(ans && score) {
       users.set(u[i], users.get(u[i]) + score);
     }
-    for(var j=0; j<user_answers.length; j++) {
-      var a2 = user_answers[j].answer;
-      var u2 = user_answers[j].username;
+    var user_answer_entries = user_final_answers.entries();
+    for(var j=0; j<user_answer_entries.length; j++) {
+      var a2 = user_answers[j][1];
+      var u2 = user_answers[j][0];
       if(ans == a2) {
         users.set(u2, users.get(u2) + FAKE_ANSWER_POINTS);
       }
