@@ -184,7 +184,9 @@ function onSubmitAnswer() {
 
   io.emit('update_state', {
     users: users.entries(),
-    state: curState
+    state: curState,
+    question: curQuestion,
+    answers: selectable_answers
   });
   clearTimeout(submitAnswerTmout);
 } 
