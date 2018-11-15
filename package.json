@@ -16,7 +16,7 @@
     "koa-static": "1.5.3",
     "koa-session": "4.8.0",
     "request": "^2.88.0",
-    "sentencer": "^0.1.5",
+    "sentencer": "git@github.com:shawrkbait/Sentencer.git#google-autocomplete-me",
     "socket.io": "2.1.1"
   },
   "scripts": {
