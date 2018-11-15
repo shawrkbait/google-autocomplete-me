@@ -190,12 +190,22 @@ function onSubmitAnswer() {
 } 
 
 function generateAnswers(user_answers) { 
-  var shuffled_ar = real_answers.slice(0,10-user_answers.size);
+  var answer_set = user_answers.values();
+  var valid_answer_count = 0;
+  // Don't publish invalid (empty) user answers
+  for(var i=0; i<answer_set.length; i++) {
+    if(answer_set[i] == '') {
+      answer_set.splice(i,1);
+    }
+    else {
+      valid_answer_count++;
+    }
+  }
+  var shuffled_ar = real_answers.slice(0,10-valid_answer_count);
 
   for(var i=0; i<shuffled_ar.length; i++) {
     score_map.set(shuffled_ar[i], 10 - i);
   }
-  var answer_set = user_answers.values();
   for(var i=0; i<answer_set.length; i++) {
     // Dedup
     if(score_map.get(answer_set[i])) continue;
