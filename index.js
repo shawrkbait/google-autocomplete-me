@@ -179,9 +179,9 @@ function onSubmitAnswerTmout() {
 
 function onSubmitAnswer() {
   updateScores(users,user_final_answers);
-  console.log("Emitting update state");
-
   curState = "between_games";
+  console.log("Emitting update state (" + curState + ") " + users.entries());
+
   io.emit('update_state', {
     users: users.entries(),
     state: curState

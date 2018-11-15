@@ -40,27 +40,25 @@ $(function() {
     return $('<div/>').text(input).html();
   }
 
-  // Keyboard events
+  // Submit events
 
-  $window.keydown(event => {
-    // Auto-focus the current input when a key is typed
-    if (!(event.ctrlKey || event.metaKey || event.altKey)) {
-      $currentInput.focus();
-    }
-    // When the client hits ENTER on their keyboard
-    if (event.which === 13) {
-      if (username) {
-        if(curState == "question") {
-          createAnswer();
-        }
-        else if(curState == "select_answer") {
-          selectAnswer();
-        }
-      } else {
-        setUsername();
-      }
-    }
+  $('#form-signin').submit(function(event) {
+    event.preventDefault();
+    setUsername();
   });
+  $('#form-answer').submit(function(event) {
+    event.preventDefault();
+    createAnswer();
+  });
+  $('#form-startgame').submit(function(event) {
+    event.preventDefault();
+    startGame();
+  });
+
+  const startGame = () => {
+    console.log("Emitting start game");
+    socket.emit('start game', 'test');
+  }
 
   const createAnswer = () => {
     var curVal = $answerInput.val();
@@ -73,9 +71,7 @@ $(function() {
     $questionPage.off('click');
   }
 
-  const selectAnswer = () => {
-    var curVal = $answerInput.val();
-    curVal = cleanInput(curVal.substring(qlen));
+  const selectAnswer = (curVal) => {
     console.log("Emitting submit_answer: " + curVal);
     socket.emit('submit_answer', curVal);
     $answerInput.val("");
@@ -84,9 +80,10 @@ $(function() {
     $questionPage.off('click');
   }
 
-  const updateScores = (users, options) => {
-    console.log("updateScores: " + users);
-    var sorted_users = users.sort(function(a,b) {return b[1] - a[1]});
+  const showScores = (data) => {
+    console.log("showScores: " + JSON.stringify(data));
+    $(".page:not(.scoreboard)").hide();
+    var sorted_users = data.users.sort(function(a,b) {return b[1] - a[1]});
     var table = $("<table/>");
     var thead = $("<thead/>");
     var tr = $("<tr/>");
@@ -103,9 +100,12 @@ $(function() {
     });
     table.append(tbody);
     $scores.html(table);
+    $scorePage.show();
   }
 
   const showQuestion = (data) => {
+    $('#form-answer').prop("disabled", false);
+    $('#form-answer').show();
     console.log("showQuestion: " + JSON.stringify(data));
     $currentInput = $answerInput.focus();
     $('.question.page #answerSelection').html("");
@@ -129,26 +129,26 @@ $(function() {
 
   const showAnswers = (data) => {
     console.log("showAnswers: " + JSON.stringify(data));
+    $('#form-answer').prop("disabled", true);
+    $('#form-answer').hide();
+    var thediv = $('.question.page #answerSelection');
+    thediv.html("");
+
     $waitingPage.fadeOut();
     $questionPage.show();
-    var table = $("<table/>");
-    var tbody = $("<tbody/>");
-
-    $answerInput.prop('readonly', true);
-    $answerInput.val(data.question);
 
     $.each(data.answers,function(rowIndex, r) {
-        var row = $("<tr/>");
-        row.append($("<td/>").text(data.question + data.answers[rowIndex]));
-
-        row.on('click', function() {
-          $answerInput.val(data.question + data.answers[rowIndex]);
-        });
-        tbody.append(row);
+      //var btn = $('<button/>', { 'class': 'btn btn-large btn-secondary',
+      var btn = $('<button/>', { 'class': 'btn btn-secondary',
+        text: data.question + data.answers[rowIndex],
+        name: data.answers[rowIndex],
+        type: 'submit',
+      });
+      btn.on('click', function() {
+        selectAnswer($(this).attr("name"));
+      });
+      thediv.append(btn);
     });
-    table.append(tbody);
-
-    $('.question.page #answerSelection').html(table);
   }
 
   socket.on('login', (data) => {
@@ -168,16 +168,7 @@ $(function() {
       $loginPage.show();
     }
     else if(data.state == "between_games") {
-      updateScores(data.users);
-
-      $(".page:not(.scoreboard)").fadeOut();
-      $scorePage.show();
-      var but = $('<input type="button" value="start game"/>');
-      but.on('click', function() {
-        console.log("Emitting start game");
-        socket.emit('start game', 'test');
-      });
-      $('.startGameArea').html(but);
+      showScores(data);
     }
     else if(data.state == "question") {
       showQuestion(data);
