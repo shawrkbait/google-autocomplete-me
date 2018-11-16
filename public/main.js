@@ -138,6 +138,7 @@ $(function() {
     $questionPage.show();
 
     $.each(data.answers,function(rowIndex, r) {
+      var row = $("<div/>", {'class': 'row'});
       //var btn = $('<button/>', { 'class': 'btn btn-large btn-secondary',
       var btn = $('<button/>', { 'class': 'btn btn-secondary',
         text: data.question + data.answers[rowIndex],
@@ -147,7 +148,8 @@ $(function() {
       btn.on('click', function() {
         selectAnswer($(this).attr("name"));
       });
-      thediv.append(btn);
+      row.append(btn);
+      thediv.append(row);
     });
   }
 
