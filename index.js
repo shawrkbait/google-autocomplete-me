@@ -113,7 +113,7 @@ io.on('connection', function(socket) {
     score_map = new Hashmap();
     console.log("Game started by " + socket.username);
 
-    doGameTest();
+    doGame();
   });
 
   //Process someone's answer
@@ -306,7 +306,7 @@ function doGame() {
 }
 
 function randomQuestion() {
-  return Sentencer.make("why does {{ name }}");
+  return Sentencer.make("why does {{ a_noun }}",2);
 }
 
 function doGameTest() {
