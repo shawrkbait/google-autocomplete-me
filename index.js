@@ -10,7 +10,7 @@ var Hashmap = require('hashmap');
 
 const PORT = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 const IP = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
-const FAKE_ANSWER_POINTS = 2;
+const FAKE_ANSWER_POINTS = 5;
 
 app.keys = ['something secret'];
 app.use(session({},app));
@@ -27,7 +27,7 @@ app.use(serve('./public'));
 var server = require('http').Server(app.callback()),
 	io = require('socket.io')(server);
 
-var answerTimeout = 15;
+var answerTimeout = 60;
 
 // Store array of user data
 var users = new Hashmap();
