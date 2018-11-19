@@ -107,7 +107,6 @@ $(function() {
     $('#form-answer').prop("disabled", false);
     $('#form-answer').show();
     console.log("showQuestion: " + JSON.stringify(data));
-    $currentInput = $answerInput.focus();
     $('.question.page #answerSelection').html("");
     $(".page:not(.question)").hide();
     $questionPage.show();
@@ -116,15 +115,9 @@ $(function() {
     qlen = readOnlyLength;
     $answerInput.prop('readonly', false);
     $answerInput.val(data.question);
-
-    $answerInput.on('keypress, keydown', function(event) {
-      var $field = $(this);
-      if ((event.which != 37 && (event.which != 39))
-        && ((this.selectionStart < readOnlyLength)
-        || ((this.selectionStart == readOnlyLength) && (event.which == 8)))) {
-        return false;
-      }
-    });
+    $answerInput.attr({'pattern': '^' + data.question + '.*'});
+    $answerInput.attr({'title': data.question});
+    $currentInput = $answerInput.focus();
   }
 
   const showAnswers = (data) => {
@@ -168,6 +161,7 @@ $(function() {
     if(data.state == "login_required") {
       $(".page:not(.login)").hide();
       $loginPage.show();
+      $currentInput = $usernameInput.focus();
     }
     else if(data.state == "between_games") {
       showScores(data);
