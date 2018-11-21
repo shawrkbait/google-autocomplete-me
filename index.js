@@ -36,7 +36,6 @@ var users = new Hashmap();
 var user_final_answers = new Hashmap();
 var user_answers = new Hashmap();
 var real_answers = [];
-var real_sliced_answers = [];
 var selectable_answers = []
 var score_map = new Hashmap();
 
@@ -102,12 +101,10 @@ io.on('connection', function(socket) {
   // A dashboard for the current game state
   socket.on('dashboard', (username) => {
     socket.emit("update_state", {
-      users: users.entries(),
       state: curState,
       question: curQuestion,
       real_answers: real_answers,
-      user_answers: user_answers.entries(),
-      user_final_answers: user_final_answers.entries()
+      user_state: getUserState()
     });
   });
 
@@ -136,17 +133,14 @@ io.on('connection', function(socket) {
     if(curState == "between_games") {
       // send to all
       io.emit("update_state", {
-        users: users.entries(),
         state: curState,
         question: curQuestion,
         real_answers: real_answers,
-        user_answers: user_answers.entries(),
-        user_final_answers: user_final_answers.entries()
+        user_state: getUserState()
       });
     }
     else if(curState == "select_answer") {
       io.emit("update_state", {
-        users: users.entries(),
         state: curState,
         question: curQuestion,
         answers: selectable_answers
@@ -154,7 +148,6 @@ io.on('connection', function(socket) {
     }
     else {
       socket.emit("update_state", {
-        users: users.entries(),
         state: curState,
         question: curQuestion
       });
@@ -167,7 +160,6 @@ io.on('connection', function(socket) {
     selectable_answers = [];
     user_final_answers = new Hashmap();
     score_map = new Hashmap();
-    real_sliced_answers = []
     console.log("Game started by " + socket.username);
 
     doGame();
@@ -219,7 +211,6 @@ function onCreateAnswer() {
 
   curState = "select_answer";
   io.emit("update_state", {
-    users: users.entries(),
     state: curState,
     question: curQuestion,
     answers: selectable_answers
@@ -240,12 +231,10 @@ function onSubmitAnswer() {
   console.log("Emitting update state (" + curState + ") " + users.entries());
 
   io.emit("update_state", {
-    users: users.entries(),
     state: curState,
     question: curQuestion,
     real_answers: real_answers,
-    user_answers: user_answers.entries(),
-    user_final_answers: user_final_answers.entries()
+    user_state: getUserState()
   });
   clearTimeout(submitAnswerTmout);
 } 
@@ -263,8 +252,6 @@ function generateAnswers(user_answers) {
     }
   }
   var shuffled_ar = real_answers.slice(0,NUM_SELECTABLE_ANSWERS-valid_answer_count);
-  var shuffled_ar = real_answers.slice(0,10-valid_answer_count);
-  real_sliced_answers = shuffled_ar;
 
   for(var i=0; i<shuffled_ar.length; i++) {
     score_map.set(shuffled_ar[i], 10 - i);
@@ -364,6 +351,21 @@ function doGame() {
       // wait for answer creation
       createAnswerTmout = setTimeout(onCreateAnswerTmout, answerTimeout * 1000);
     });
+}
+
+function getUserState() {
+  var us = users.entries();
+  var objs = [];
+  for(var i=0; i<us.length; i++) {
+    var obj = {
+      username: us[i][0],
+      this_score: 0,
+      total_score: us[i][1],
+      answer: user_answers.get(us[i][0])
+    }
+    objs.push(obj);
+  }
+  return objs;
 }
 
 function randomQuestion() {

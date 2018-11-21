@@ -19,21 +19,23 @@ $(function() {
   const showScores = (data) => {
     console.log("showScores: " + JSON.stringify(data));
     $(".page:not(.scoreboard)").hide();
-    var sorted_users = data.users.sort(function(a,b) {return b[1] - a[1]});
+    var sorted_users = data.user_state.sort(function(a,b) {return b[1] - a[1]});
     var table = $("<table/>",{ 'class': 'table'});
     var thead = $("<thead/>");
     var tr = $("<tr/>");
     var tbody = $("<tbody/>");
     tr.append($("<th/>").text("User"));
     tr.append($("<th/>").text("Answer"));
-    tr.append($("<th/>").text("Score"));
+    tr.append($("<th/>").text("This Round"));
+    tr.append($("<th/>").text("Total Score"));
     thead.append(tr);
     table.append(thead);
     $.each(sorted_users,function(rowIndex, r) {
         var row = $("<tr/>");
-        row.append($("<td/>").text(sorted_users[rowIndex][0]));
-        row.append($("<td/>").text(data.question + data.user_answers[sorted_users[rowIndex][0]]));
-        row.append($("<td/>").text(sorted_users[rowIndex][1]));
+        row.append($("<td/>").text(sorted_users[rowIndex].username));
+        row.append($("<td/>").text(data.question + sorted_users[rowIndex].answer));
+        row.append($("<td/>").text(sorted_users[rowIndex].this_score));
+        row.append($("<td/>").text(sorted_users[rowIndex].total_score));
         tbody.append(row);
     });
     table.append(tbody);

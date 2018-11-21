@@ -83,7 +83,7 @@ $(function() {
   const showScores = (data) => {
     console.log("showScores: " + JSON.stringify(data));
     $(".page:not(.scoreboard)").hide();
-    var sorted_users = data.users.sort(function(a,b) {return b[1] - a[1]});
+    var sorted_users = data.user_state.sort(function(a,b) {return b[1].total_score - a[1].total_score});
     var table = $("<table/>");
     var thead = $("<thead/>");
     var tr = $("<tr/>");
@@ -94,8 +94,8 @@ $(function() {
     table.append(thead);
     $.each(sorted_users,function(rowIndex, r) {
         var row = $("<tr/>");
-        row.append($("<td/>").text(sorted_users[rowIndex][0]));
-        row.append($("<td/>").text(sorted_users[rowIndex][1]));
+        row.append($("<td/>").text(sorted_users[rowIndex].username));
+        row.append($("<td/>").text(sorted_users[rowIndex].total_score));
         tbody.append(row);
     });
     table.append(tbody);
