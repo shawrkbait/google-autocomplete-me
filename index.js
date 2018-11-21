@@ -7,10 +7,12 @@ var app = require('koa')(),
 var querystring = require('querystring');
 var Sentencer = require('sentencer');
 var Hashmap = require('hashmap');
+var randy = require('randy');
 
 const PORT = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 const IP = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
 const FAKE_ANSWER_POINTS = 5;
+const NUM_SELECTABLE_ANSWERS = 5; // max = 10
 
 app.keys = ['something secret'];
 app.use(session({},app));
@@ -44,6 +46,37 @@ var submitAnswerTmout;
 var curState = "between_games";
 
 // TODO: allow max of 9 players
+
+var _names = require('./words/names.js');
+var _obj_beg = require('./words/object_beginnings.js');
+var _past = require('./words/past_verbs.js');
+var _present = require('./words/present_verbs.js');
+var _propernouns = require('./words/proper_nouns.js');
+var _questions = require('./words/questions.js');
+Sentencer.configure({
+
+  actions: {
+    name: function(){
+      return randy.choice(_names);
+    },
+    object_beginning: function(){
+      return randy.choice(_obj_beg);
+    },
+    past_verb: function(){
+      return randy.choice(_past);
+    },
+    present_verb: function(){
+      return randy.choice(_present);
+    },
+    proper_noun: function(){
+      return randy.choice(_propernouns);
+    },
+    question: function(){
+      return randy.choice(_questions);
+    }
+  }
+});
+Sentencer._nouns = Sentencer._nouns.concat(require('./words/nouns.js'));
 
 io.set("authorization", function(data, accept) {
   if (data.headers.cookie && data.headers.cookie.indexOf('koa:sess') > -1) {
@@ -203,7 +236,7 @@ function generateAnswers(user_answers) {
       valid_answer_count++;
     }
   }
-  var shuffled_ar = real_answers.slice(0,10-valid_answer_count);
+  var shuffled_ar = real_answers.slice(0,NUM_SELECTABLE_ANSWERS-valid_answer_count);
 
   for(var i=0; i<shuffled_ar.length; i++) {
     score_map.set(shuffled_ar[i], 10 - i);
@@ -306,7 +339,7 @@ function doGame() {
 }
 
 function randomQuestion() {
-  return Sentencer.make("why does {{ a_noun }}",2);
+  return Sentencer.make("{{ question }}",2);
 }
 
 function doGameTest() {
