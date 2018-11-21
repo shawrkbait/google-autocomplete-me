@@ -13,6 +13,7 @@ const PORT = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 const IP = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
 const FAKE_ANSWER_POINTS = 5;
 const NUM_SELECTABLE_ANSWERS = 5; // max = 10
+const ANSWER_TIMEOUT = 60;
 
 app.keys = ['something secret'];
 app.use(session({},app));
@@ -29,7 +30,6 @@ app.use(serve('./public'));
 var server = require('http').Server(app.callback()),
 	io = require('socket.io')(server);
 
-var answerTimeout = 60;
 
 // Store array of user data
 var users = new Hashmap();
@@ -44,7 +44,7 @@ var curQuestion = "";
 var createAnswerTmout;
 var submitAnswerTmout;
 var curState = "between_games";
-
+var valid_answer_count = 0;
 // TODO: allow max of 9 players
 
 var _names = require('./words/names.js');
@@ -103,7 +103,7 @@ io.on('connection', function(socket) {
     socket.emit("update_state", {
       state: curState,
       question: curQuestion,
-      real_answers: real_answers,
+      real_answers: real_answers.slice(0,NUM_SELECTABLE_ANSWERS-valid_answer_count),
       user_state: getUserState()
     });
   });
@@ -135,7 +135,6 @@ io.on('connection', function(socket) {
       io.emit("update_state", {
         state: curState,
         question: curQuestion,
-        real_answers: real_answers,
         user_state: getUserState()
       });
     }
@@ -160,6 +159,7 @@ io.on('connection', function(socket) {
     selectable_answers = [];
     user_final_answers = new Hashmap();
     score_map = new Hashmap();
+    valid_answer_count = 0;
     console.log("Game started by " + socket.username);
 
     doGame();
@@ -217,7 +217,7 @@ function onCreateAnswer() {
   });
 
   clearTimeout(createAnswerTmout);
-  submitAnswerTmout = setTimeout(onSubmitAnswerTmout, answerTimeout * 1000);
+  submitAnswerTmout = setTimeout(onSubmitAnswerTmout, ANSWER_TIMEOUT * 1000);
 } 
 
 function onSubmitAnswerTmout() {
@@ -233,7 +233,7 @@ function onSubmitAnswer() {
   io.emit("update_state", {
     state: curState,
     question: curQuestion,
-    real_answers: real_answers,
+    real_answers: real_answers.slice(0,NUM_SELECTABLE_ANSWERS-valid_answer_count),
     user_state: getUserState()
   });
   clearTimeout(submitAnswerTmout);
@@ -241,7 +241,6 @@ function onSubmitAnswer() {
 
 function generateAnswers(user_answers) { 
   var answer_set = user_answers.values();
-  var valid_answer_count = 0;
   // Don't publish invalid (empty) user answers
   for(var i=0; i<answer_set.length; i++) {
     if(answer_set[i] == '') {
@@ -349,7 +348,7 @@ function doGame() {
       });
 
       // wait for answer creation
-      createAnswerTmout = setTimeout(onCreateAnswerTmout, answerTimeout * 1000);
+      createAnswerTmout = setTimeout(onCreateAnswerTmout, ANSWER_TIMEOUT * 1000);
     });
 }
 
@@ -389,7 +388,7 @@ function doGameTest() {
     });
 
     // wait for answer creation
-    createAnswerTmout = setTimeout(onCreateAnswerTmout, answerTimeout * 1000);
+    createAnswerTmout = setTimeout(onCreateAnswerTmout, ANSWER_TIMEOUT * 1000);
 }
 
 server.listen(PORT, IP);

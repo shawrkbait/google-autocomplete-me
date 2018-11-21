@@ -7,20 +7,24 @@
   <link rel="stylesheet" href="dashboard.css">
 </head>
 <body class="text-center">
+  <div class="container">
   <div class="question page" style="display:none">
     <center>
-      <h1>BalderGoog</h1>
+      <h1 class="display-2">BalderGoog</h1>
       <form id="form-answer">
-        <input class="answerInput" type="text" size="50" />
+        <div class="form-group">
+          <input class="answerInput form-control form-control-lg" type="text" />
+        </div>
       </form>
       <div id="answerSelection" class="container">
       </div>
     </center>
   </div>
   <div class="scoreboard page" style="display:none">
-    <h1>LeaderBoard</h1>
+    <h1 class="display-2">LeaderBoard</h1>
     <div class="scoreboardArea">
     </div>
+  </div>
   </div>
   <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
