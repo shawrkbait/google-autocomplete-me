@@ -39,7 +39,6 @@ var user_final_answers = new Hashmap();
 var user_answers = new Hashmap();
 var real_answers = [];
 var selectable_answers = []
-var score_map = new Hashmap();
 
 var session_users = new Hashmap();
 var curQuestion = "";
@@ -155,7 +154,6 @@ io.on('connection', function(socket) {
     user_answers = new Hashmap();
     selectable_answers = [];
     user_final_answers = new Hashmap();
-    score_map = new Hashmap();
     valid_answer_count = 0;
     user_state.forEach(function(value, key) {
       var obj = user_state.get(key);
@@ -267,8 +265,6 @@ function generateAnswers(user_answers) {
   }
 
   for(var i=0; i<NUM_SELECTABLE_ANSWERS-valid_answer_count; i++) {
-    score_map.set(real_answers[i], 10 - i);
-      
     var cur = answer_state.get(real_answers[i]);
     if(cur) {
       cur.created_by.push("- Real -");
@@ -294,7 +290,7 @@ function updateScores(user_state, user_final_answers) {
   var u = user_state.keys();
   for(var i=0; i<u.length; i++) {
     var final_ans = user_final_answers.get(u[i]);
-    var score = score_map.get(final_ans);
+    var score = answer_state.get(final_ans).selected_by_points;
 
     var obj = user_state.get(u[i]);
     obj.answer = user_answers.get(u[i]);
@@ -304,7 +300,7 @@ function updateScores(user_state, user_final_answers) {
     astate.selected_by.push(u[i]);
     answer_state.set(final_ans, astate);
 
-    if(final_ans && score) {
+    if(final_ans && score != 0) {
       obj.total_score += score;
     }
     user_state.set(u[i], obj);
