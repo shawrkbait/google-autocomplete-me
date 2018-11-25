@@ -83,7 +83,7 @@ $(function() {
   const showScores = (data) => {
     console.log("showScores: " + JSON.stringify(data));
     $(".page:not(.scoreboard)").hide();
-    var sorted_users = data.user_state.sort(function(a,b) {return b[1].total_score - a[1].total_score});
+    var sorted_users = data.user_state.sort(function(a,b) {return b.total_score - a.total_score});
     var table = $("<table/>");
     var thead = $("<thead/>");
     var tr = $("<tr/>");

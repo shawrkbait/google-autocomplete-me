@@ -14,6 +14,7 @@ const IP = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
 const FAKE_ANSWER_POINTS = 5;
 const NUM_SELECTABLE_ANSWERS = 5; // max = 10
 const ANSWER_TIMEOUT = 60;
+const MIN_REAL_ANSWERS = 5;
 
 app.keys = ['something secret'];
 app.use(session({},app));
@@ -32,7 +33,8 @@ var server = require('http').Server(app.callback()),
 
 
 // Store array of user data
-var users = new Hashmap();
+var user_state = new Hashmap();
+var answer_state = new Hashmap();
 var user_final_answers = new Hashmap();
 var user_answers = new Hashmap();
 var real_answers = [];
@@ -92,19 +94,13 @@ io.set("authorization", function(data, accept) {
 
 io.on('connection', function(socket) {
 
-/*
- * real_answers: real_answers = ["a","b"]
- * user_answers: user_answers.entries() = [["username", "answer"],]
- * final_answers: user_final_answers.entries() = [["username", "answer"],]
- */
-
   // A dashboard for the current game state
   socket.on('dashboard', (username) => {
     socket.emit("update_state", {
       state: curState,
       question: curQuestion,
-      real_answers: real_answers.slice(0,NUM_SELECTABLE_ANSWERS-valid_answer_count),
-      user_state: getUserState()
+      user_state: user_state.values(),
+      answer_state: user_state.entries()
     });
   });
 
@@ -127,15 +123,16 @@ io.on('connection', function(socket) {
       session_users.set(socket.request.name, username);
       socket.username = username;
       console.log(socket.username + " joined");
-      users.set(username, 0);
+      user_state.set(username, {username: username, total_score: 0, answer: "", selected_answer: ""});
     }
-    console.log("Emitting update state (" + curState + ") " + users.entries());
+    console.log("Emitting update state (" + curState + ") " + user_state.entries());
     if(curState == "between_games") {
       // send to all
       io.emit("update_state", {
         state: curState,
         question: curQuestion,
-        user_state: getUserState()
+        user_state: user_state.values(),
+        answer_state: answer_state.entries()
       });
     }
     else if(curState == "select_answer") {
@@ -160,6 +157,11 @@ io.on('connection', function(socket) {
     user_final_answers = new Hashmap();
     score_map = new Hashmap();
     valid_answer_count = 0;
+    user_state.forEach(function(value, key) {
+      var obj = user_state.get(key);
+      user_state.set(key, obj);
+    });
+    answer_state = new Hashmap();
     console.log("Game started by " + socket.username);
 
     doGame();
@@ -176,8 +178,8 @@ io.on('connection', function(socket) {
     mangledA = mangledA.replace(/[\?\.\!]$/gi,"");
     user_answers.set(socket.username, mangledA);
 
-    console.log(user_answers.size + " of " + users.size);
-    if (users.size == user_answers.size) {
+    console.log(user_answers.size + " of " + user_state.size);
+    if (user_state.size == user_answers.size) {
       onCreateAnswer();
     }
   })
@@ -186,8 +188,8 @@ io.on('connection', function(socket) {
     console.log(socket.username + " submitted \"" + answer + "\"");
     user_final_answers.set(socket.username, answer);
 
-    console.log(user_final_answers.size + " of " + users.size);
-    if (users.size == user_final_answers.size) {
+    console.log(user_final_answers.size + " of " + user_state.size);
+    if (user_state.size == user_final_answers.size) {
       onSubmitAnswer();
     }
   })
@@ -226,58 +228,96 @@ function onSubmitAnswerTmout() {
 }
 
 function onSubmitAnswer() {
-  updateScores(users,user_final_answers);
+  updateScores(user_state,user_final_answers);
   curState = "between_games";
-  console.log("Emitting update state (" + curState + ") " + users.entries());
+  console.log("Emitting update state (" + curState + ") " + user_state.entries());
 
   io.emit("update_state", {
     state: curState,
     question: curQuestion,
-    real_answers: real_answers.slice(0,NUM_SELECTABLE_ANSWERS-valid_answer_count),
-    user_state: getUserState()
+    user_state: user_state.values(),
+    answer_state: answer_state.entries()
   });
   clearTimeout(submitAnswerTmout);
 } 
 
 function generateAnswers(user_answers) { 
-  var answer_set = user_answers.values();
-  // Don't publish invalid (empty) user answers
+  var answer_set = user_answers.entries();
   for(var i=0; i<answer_set.length; i++) {
-    if(answer_set[i] == '') {
+    // Don't publish invalid (empty) user answers
+    if(answer_set[i][1] == '') {
       answer_set.splice(i,1);
     }
     else {
-      valid_answer_count++;
+      var cur = answer_state.get(answer_set[i][1]);
+      if(cur) {
+        cur.created_by.push(answer_set[i][0]);
+      }
+      else {
+        valid_answer_count++;
+        cur = {
+          created_by: [answer_set[i][0]],
+          selected_by: [],
+          created_by_points: FAKE_ANSWER_POINTS,
+          selected_by_points: 0
+        };
+      }
+      answer_state.set(answer_set[i][1], cur);
     }
   }
-  var shuffled_ar = real_answers.slice(0,NUM_SELECTABLE_ANSWERS-valid_answer_count);
 
-  for(var i=0; i<shuffled_ar.length; i++) {
-    score_map.set(shuffled_ar[i], 10 - i);
+  for(var i=0; i<NUM_SELECTABLE_ANSWERS-valid_answer_count; i++) {
+    score_map.set(real_answers[i], 10 - i);
+      
+    var cur = answer_state.get(real_answers[i]);
+    if(cur) {
+      cur.created_by.push("- Real -");
+      cur.selected_by_points = 10 - i;
+      // user answer is same as real answer
+      valid_answer_count--;
+    }
+    else {
+      cur = {
+        created_by: ["- Real -"],
+        selected_by: [],
+        created_by_points: 0,
+        selected_by_points: 10 - i
+      };
+    }
+    answer_state.set(real_answers[i], cur);
   }
-  for(var i=0; i<answer_set.length; i++) {
-    // Dedup
-    if(score_map.get(answer_set[i])) continue;
-    shuffled_ar.push(answer_set[i]);
-  }
-  return shuffle(shuffled_ar);
+
+  return shuffle(answer_state.keys());
 }
 
-function updateScores(users, user_final_answers) {
-  var u = users.keys();
+function updateScores(user_state, user_final_answers) {
+  var u = user_state.keys();
   for(var i=0; i<u.length; i++) {
-    var ans = user_final_answers.get(u[i]);
-    var score = score_map.get(ans);
-    console.log("ans = " + ans + ", score = " + score);
-    if(ans && score) {
-      users.set(u[i], users.get(u[i]) + score);
+    var final_ans = user_final_answers.get(u[i]);
+    var score = score_map.get(final_ans);
+
+    var obj = user_state.get(u[i]);
+    obj.answer = user_answers.get(u[i]);
+    obj.selected_answer = final_ans;
+
+    var astate = answer_state.get(final_ans);
+    astate.selected_by.push(u[i]);
+    answer_state.set(final_ans, astate);
+
+    if(final_ans && score) {
+      obj.total_score += score;
     }
+    user_state.set(u[i], obj);
+
     var user_answer_entries = user_answers.entries();
     for(var j=0; j<user_answer_entries.length; j++) {
-      var a2 = user_answer_entries[j][1];
-      var u2 = user_answer_entries[j][0];
-      if(ans == a2) {
-        users.set(u2, users.get(u2) + FAKE_ANSWER_POINTS);
+      var created_answer = user_answer_entries[j][1];
+      var created_by = user_answer_entries[j][0];
+      var ustate = user_state.get(created_by);
+
+      if(final_ans == created_answer) {
+        ustate.total_score += FAKE_ANSWER_POINTS;
+        user_state.set(created_by, ustate);
       }
     }
   }
@@ -309,7 +349,7 @@ function doGame() {
 
     // Regenerate until we have a valid question
     async.whilst(function () {
-      return answers.length == 0;
+      return answers.length < MIN_REAL_ANSWERS;
     },
     function (next) {
       var encoded = querystring.escape(randomQuestion());
@@ -342,7 +382,6 @@ function doGame() {
 
       curState = "question";
       io.emit("update_state", {
-        users: users.entries(),
         state: curState,
         question: curQuestion
       });
@@ -350,21 +389,6 @@ function doGame() {
       // wait for answer creation
       createAnswerTmout = setTimeout(onCreateAnswerTmout, ANSWER_TIMEOUT * 1000);
     });
-}
-
-function getUserState() {
-  var us = users.entries();
-  var objs = [];
-  for(var i=0; i<us.length; i++) {
-    var obj = {
-      username: us[i][0],
-      this_score: 0,
-      total_score: us[i][1],
-      answer: user_answers.get(us[i][0])
-    }
-    objs.push(obj);
-  }
-  return objs;
 }
 
 function randomQuestion() {
@@ -382,7 +406,6 @@ function doGameTest() {
 
     curState = "question"
     io.emit("update_state", {
-      users: users.entries(),
       state: curState,
       question: curQuestion
     });

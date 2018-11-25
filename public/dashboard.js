@@ -19,38 +19,53 @@ $(function() {
   const showScores = (data) => {
     console.log("showScores: " + JSON.stringify(data));
     $(".page:not(.scoreboard)").hide();
-    var sorted_users = data.user_state.sort(function(a,b) {return b[1] - a[1]});
+    var sorted_users = data.user_state.sort(function(a,b) {return b[1].total_score - a[1].total_score});
     var table = $("<table/>",{ 'class': 'table'});
     var thead = $("<thead/>");
     var tr = $("<tr/>");
     var tbody = $("<tbody/>");
     tr.append($("<th/>").text("User"));
-    tr.append($("<th/>").text("Answer"));
-    tr.append($("<th/>").text("This Round"));
-    tr.append($("<th/>").text("Total Score"));
+    tr.append($("<th/>").text("Score"));
     thead.append(tr);
     table.append(thead);
     $.each(sorted_users,function(rowIndex, r) {
         var row = $("<tr/>");
         row.append($("<td/>").text(sorted_users[rowIndex].username));
-        row.append($("<td/>").text(data.question + sorted_users[rowIndex].answer));
-        row.append($("<td/>").text(sorted_users[rowIndex].this_score));
         row.append($("<td/>").text(sorted_users[rowIndex].total_score));
         tbody.append(row);
     });
     table.append(tbody);
     $scores.html(table);
+
     table = $("<table/>",{ 'class': 'table'});
     thead = $("<thead/>");
     tr = $("<tr/>");
     tbody = $("<tbody/>");
-    tr.append($("<th/>").text("Real Answers"));
+    tr.append($("<th/>").text("Created by"));
+    tr.append($("<th/>").text("Answer"));
+    tr.append($("<th/>").text("Selected by"));
     thead.append(tr);
     table.append(thead);
 
-    $.each(data.real_answers,function(rowIndex, r) {
+    var sorted_answers = data.answer_state.sort(function(a,b) {return b[1].selected_by_points - a[1].selected_by_points});
+    $.each(sorted_answers,function(rowIndex, r) {
         var row = $("<tr/>");
-        row.append($("<td/>").text(data.question + data.real_answers[rowIndex]));
+        var td = $("<td/>");
+        $.each(sorted_answers[rowIndex][1].created_by, function(i, r) {
+          var d = $("<div/>");
+          d.text(sorted_answers[rowIndex][1].created_by[i]);
+          td.append(d);
+        });
+        row.append(td);
+        row.append($("<td/>").text(data.question + sorted_answers[rowIndex][0]));
+
+        td = $("<td/>");
+        $.each(sorted_answers[rowIndex][1].created_by, function(i, r) {
+          var d = $("<div/>");
+          d.text(sorted_answers[rowIndex][1].selected_by[i]);
+          td.append(d);
+        });
+        row.append(td);
         tbody.append(row);
     });
     table.append(tbody);
@@ -79,6 +94,7 @@ $(function() {
     $('#form-answer').hide();
     var thediv = $('.question.page #answerSelection');
     thediv.html("");
+    $(".page:not(.question)").hide();
 
     $questionPage.show();
 
