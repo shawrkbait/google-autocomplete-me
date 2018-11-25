@@ -52,18 +52,27 @@ $(function() {
         var row = $("<tr/>");
         var td = $("<td/>");
         $.each(sorted_answers[rowIndex][1].created_by, function(i, r) {
-          var d = $("<div/>");
-          d.text(sorted_answers[rowIndex][1].created_by[i]);
-          td.append(d);
+          var btn = $("<button/>", { 'class': 'btn btn-primary', 'type': 'button'});
+          btn.text(sorted_answers[rowIndex][1].created_by[i] + " ");
+          if(sorted_answers[rowIndex][1].created_by[i] != "- Real -") {
+            var pts = sorted_answers[rowIndex][1].created_by_points * sorted_answers[rowIndex][1].selected_by.length;
+            if(pts > 0)
+              btn.append($("<span/>", { 'class': 'badge badge-light'}).text("+" + pts));
+          }
+          else btn.removeClass("btn-primary").addClass("btn-success");
+          td.append(btn);
         });
         row.append(td);
         row.append($("<td/>").text(data.question + sorted_answers[rowIndex][0]));
 
         td = $("<td/>");
-        $.each(sorted_answers[rowIndex][1].created_by, function(i, r) {
-          var d = $("<div/>");
-          d.text(sorted_answers[rowIndex][1].selected_by[i]);
-          td.append(d);
+        $.each(sorted_answers[rowIndex][1].selected_by, function(i, r) {
+          var btn = $("<button/>", { 'class': 'btn btn-primary', 'type': 'button'});
+          btn.text(sorted_answers[rowIndex][1].selected_by[i] + " ");
+          var pts = sorted_answers[rowIndex][1].selected_by_points;
+          if(pts > 0)
+            btn.append($("<span/>", { 'class': 'badge badge-light'}).text("+" + pts));
+          td.append(btn);
         });
         row.append(td);
         tbody.append(row);

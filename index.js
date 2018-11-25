@@ -11,9 +11,9 @@ var randy = require('randy');
 
 const PORT = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 const IP = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
-const FAKE_ANSWER_POINTS = 5;
 const NUM_SELECTABLE_ANSWERS = 5; // max = 10
-const ANSWER_TIMEOUT = 60;
+const FAKE_ANSWER_POINTS = 5;
+const ANSWER_MS_TIMEOUT = 60000; // 60 seconds
 const MIN_REAL_ANSWERS = 5;
 
 app.keys = ['something secret'];
@@ -46,7 +46,8 @@ var createAnswerTmout;
 var submitAnswerTmout;
 var curState = "between_games";
 var valid_answer_count = 0;
-// TODO: allow max of 9 players
+
+// TODO: Don't allow # users >= NUM_SELECTABLE_ANSWERS
 
 var _names = require('./words/names.js');
 var _obj_beg = require('./words/object_beginnings.js');
@@ -217,7 +218,7 @@ function onCreateAnswer() {
   });
 
   clearTimeout(createAnswerTmout);
-  submitAnswerTmout = setTimeout(onSubmitAnswerTmout, ANSWER_TIMEOUT * 1000);
+  submitAnswerTmout = setTimeout(onSubmitAnswerTmout, ANSWER_MS_TIMEOUT);
 } 
 
 function onSubmitAnswerTmout() {
@@ -241,6 +242,15 @@ function onSubmitAnswer() {
 
 function generateAnswers(user_answers) { 
   var answer_set = user_answers.entries();
+
+  // Add top real answer
+  answer_state.set(real_answers[0], {
+    created_by: ["- Real -"],
+    selected_by: [],
+    created_by_points: 0,
+    selected_by_points: 10
+  });
+
   for(var i=0; i<answer_set.length; i++) {
     // Don't publish invalid (empty) user answers
     if(answer_set[i][1] == '') {
@@ -264,11 +274,12 @@ function generateAnswers(user_answers) {
     }
   }
 
-  for(var i=0; i<NUM_SELECTABLE_ANSWERS-valid_answer_count; i++) {
+  // Supplement with other real answers
+  for(var i=1; i<NUM_SELECTABLE_ANSWERS-valid_answer_count; i++) {
     var cur = answer_state.get(real_answers[i]);
     if(cur) {
       cur.created_by.push("- Real -");
-      cur.selected_by_points = 10 - i;
+      cur.selected_by_points = NUM_SELECTABLE_ANSWERS*2 - 2*i;
       // user answer is same as real answer
       valid_answer_count--;
     }
@@ -277,7 +288,7 @@ function generateAnswers(user_answers) {
         created_by: ["- Real -"],
         selected_by: [],
         created_by_points: 0,
-        selected_by_points: 10 - i
+        selected_by_points: NUM_SELECTABLE_ANSWERS*2 - 2*i
       };
     }
     answer_state.set(real_answers[i], cur);
@@ -383,10 +394,11 @@ function doGame() {
       });
 
       // wait for answer creation
-      createAnswerTmout = setTimeout(onCreateAnswerTmout, ANSWER_TIMEOUT * 1000);
+      createAnswerTmout = setTimeout(onCreateAnswerTmout, ANSWER_MS_TIMEOUT);
     });
 }
 
+// TODO: perform weighted random selection since some generate more options
 function randomQuestion() {
   return Sentencer.make("{{ question }}",2);
 }
@@ -407,7 +419,7 @@ function doGameTest() {
     });
 
     // wait for answer creation
-    createAnswerTmout = setTimeout(onCreateAnswerTmout, ANSWER_TIMEOUT * 1000);
+    createAnswerTmout = setTimeout(onCreateAnswerTmout, ANSWER_MS_TIMEOUT);
 }
 
 server.listen(PORT, IP);
