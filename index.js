@@ -100,7 +100,7 @@ io.on('connection', function(socket) {
       state: curState,
       question: curQuestion,
       user_state: user_state.values(),
-      answer_state: user_state.entries()
+      answer_state: answer_state.entries()
     });
   });
 
