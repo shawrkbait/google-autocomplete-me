@@ -123,7 +123,7 @@ io.on('connection', function(socket) {
       session_users.set(socket.request.name, username);
       socket.username = username;
       console.log(socket.username + " joined");
-      user_state.set(username, {username: username, total_score: 0, answer: "", selected_answer: ""});
+      user_state.set(username, {username: username, total_score: 0, answer: ""});
     }
     console.log("Emitting update state (" + curState + ") " + user_state.entries());
     if(curState == "between_games") {
@@ -304,8 +304,6 @@ function updateScores(user_state, user_final_answers) {
     var score = answer_state.get(final_ans).selected_by_points;
 
     var obj = user_state.get(u[i]);
-    obj.answer = user_answers.get(u[i]);
-    obj.selected_answer = final_ans;
 
     var astate = answer_state.get(final_ans);
     astate.selected_by.push(u[i]);

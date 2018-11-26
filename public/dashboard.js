@@ -19,7 +19,7 @@ $(function() {
   const showScores = (data) => {
     console.log("showScores: " + JSON.stringify(data));
     $(".page:not(.scoreboard)").hide();
-    var sorted_users = data.user_state.sort(function(a,b) {return b[1].total_score - a[1].total_score});
+    var sorted_users = data.user_state.sort(function(a,b) {return b.total_score - a.total_score});
     var table = $("<table/>",{ 'class': 'table'});
     var thead = $("<thead/>");
     var tr = $("<tr/>");
@@ -108,16 +108,14 @@ $(function() {
     $questionPage.show();
 
     $.each(data.answers,function(rowIndex, r) {
-      //var btn = $('<button/>', { 'class': 'btn btn-large btn-secondary',
-      var btn = $('<button/>', { 'class': 'btn btn-secondary',
-        text: data.question + data.answers[rowIndex],
-        name: data.answers[rowIndex],
-        type: 'submit',
-      });
-      btn.on('click', function() {
-        selectAnswer($(this).attr("name"));
-      });
-      thediv.append(btn);
+      var inp = $("<input/>", { "class": "answerInput form-control form-control-lg", "type": "text"});
+      inp.val(data.question + data.answers[rowIndex]);
+
+      var row = $("<div/>", { "class": "row"});
+      var col = $("<div/>", { "class": "col"});
+      col.append(inp);
+      row.append(col);
+      thediv.append(row);
     });
   }
 

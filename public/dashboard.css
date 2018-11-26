@@ -11,6 +11,9 @@ body {
   padding-top: 40px;
   padding-bottom: 40px;
   background-color: #f5f5f5;
+
+  font-family: arial,sans-serif;
+  font-weight: bold;
 }
 
 .page {
@@ -22,3 +25,6 @@ body {
 .login.page {
 }
 
+#answerSelection .row .col {
+  text-align: left;
+}

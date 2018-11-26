@@ -131,9 +131,7 @@ $(function() {
     $questionPage.show();
 
     $.each(data.answers,function(rowIndex, r) {
-      var row = $("<div/>", {'class': 'row'});
-      //var btn = $('<button/>', { 'class': 'btn btn-large btn-secondary',
-      var btn = $('<button/>', { 'class': 'btn btn-secondary',
+      var btn = $('<button/>', { 'class': 'btn btn-secondary form-control form-control-lg',
         text: data.question + data.answers[rowIndex],
         name: data.answers[rowIndex],
         type: 'submit',
@@ -141,7 +139,10 @@ $(function() {
       btn.on('click', function() {
         selectAnswer($(this).attr("name"));
       });
-      row.append(btn);
+      var row = $("<div/>", { "class": "row mb-1 mt-1"});
+      var col = $("<div/>", { "class": "col"});
+      col.append(btn);
+      row.append(col);
       thediv.append(row);
     });
   }
