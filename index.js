@@ -57,7 +57,6 @@ var _obj_beg = require('./words/object_beginnings.js');
 var _past = require('./words/past_verbs.js');
 var _present = require('./words/present_verbs.js');
 var _propernouns = require('./words/proper_nouns.js');
-var _questions = require('./words/questions.js');
 Sentencer.configure({
 
   actions: {
@@ -75,13 +74,22 @@ Sentencer.configure({
     },
     proper_noun: function(){
       return randy.choice(_propernouns);
-    },
-    question: function(){
-      return randy.choice(_questions);
     }
   }
 });
 Sentencer._nouns = Sentencer._nouns.concat(require('./words/nouns.js'));
+
+var _questions = [
+  { weight: Sentencer._nouns.length,		question: "do {{ nouns }} "},
+  { weight: _past.length * _obj_beg.length, 	question: "i {{ past_verb }} {{ object_beginning }} "},
+  { weight: Sentencer._nouns.length, 		question: "how does {{ a_noun }} "},
+  { weight: Sentencer._nouns.length, 		question: "how to watch {{ a_noun }} "},
+  { weight: _present.length, 			question: "what happens if you {{ present_verb }} "},
+  { weight: Sentencer._nouns.length, 		question: "why does {{ a_noun }} "},
+  { weight: _propernouns.length, 		question: "why does {{ proper_noun }} "},
+  { weight: _names.length, 			question: "{{ name }} "},
+  { weight: Sentencer._nouns.length, 		question: "{{ noun }}"}
+]
 
 io.set("authorization", function(data, accept) {
   if (data.headers.cookie && data.headers.cookie.indexOf('koa:sess') > -1) {
@@ -443,9 +451,12 @@ function doGame() {
     });
 }
 
-// TODO: perform weighted random selection since some generate more options
 function randomQuestion() {
-  return Sentencer.make("{{ question }}",2);
+  var weights = _questions.map(function(q) {
+    return q.weight;
+  });
+  var i = weightedRandom(weights);
+  return Sentencer.make(_questions[i].question,2);
 }
 
 function doGameTest() {
