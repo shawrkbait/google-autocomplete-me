@@ -8,10 +8,12 @@ var querystring = require('querystring');
 var Sentencer = require('sentencer');
 var Hashmap = require('hashmap');
 var randy = require('randy');
+var weightedRandom = require('weighted-random');
+
 
 const PORT = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 const IP = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
-const NUM_SELECTABLE_ANSWERS = 5; // max = 10
+const NUM_SELECTABLE_ANSWERS = 6; // max = 10
 const FAKE_ANSWER_POINTS = 5;
 const ANSWER_MS_TIMEOUT = 60000; // 60 seconds
 const MIN_REAL_ANSWERS = 5;
@@ -46,6 +48,7 @@ var createAnswerTmout;
 var submitAnswerTmout;
 var curState = "between_games";
 var valid_answer_count = 0;
+var waiting_for_answers = 0;
 
 // TODO: Don't allow # users >= NUM_SELECTABLE_ANSWERS
 
@@ -96,6 +99,7 @@ io.on('connection', function(socket) {
 
   // A dashboard for the current game state
   socket.on('dashboard', (username) => {
+    socket.is_dashboard = 1;
     socket.emit("update_state", {
       state: curState,
       question: curQuestion,
@@ -125,6 +129,8 @@ io.on('connection', function(socket) {
       console.log(socket.username + " joined");
       user_state.set(username, {username: username, total_score: 0, answer: ""});
     }
+    socket.user_selected = 0;
+    socket.user_weight = 10;
     console.log("Emitting update state (" + curState + ") " + user_state.entries());
     if(curState == "between_games") {
       // send to all
@@ -161,6 +167,12 @@ io.on('connection', function(socket) {
       user_state.set(key, obj);
     });
     answer_state = new Hashmap();
+    io.of('/').adapter.clients((err, clients) => {
+      for(var i=0; i< clients.length; i++) {
+        io.sockets.connected[clients[i]].user_selected = 0;
+      }
+    });
+    waiting_for_answers = 0;
     console.log("Game started by " + socket.username);
 
     doGame();
@@ -168,6 +180,9 @@ io.on('connection', function(socket) {
 
   //Process someone's answer
   socket.on('create_answer', (answer) => {
+    if(socket.user_selected != 1 || socket.is_dashboard == 1)
+      return;
+
     console.log(socket.username + " answered \"" + answer + "\"");
 
     /* Make all answers look googly
@@ -177,8 +192,8 @@ io.on('connection', function(socket) {
     mangledA = mangledA.replace(/[\?\.\!]$/gi,"");
     user_answers.set(socket.username, mangledA);
 
-    console.log(user_answers.size + " of " + user_state.size);
-    if (user_state.size == user_answers.size) {
+    console.log(user_answers.size + " of " + waiting_for_answers);
+    if (waiting_for_answers == user_answers.size) {
       onCreateAnswer();
     }
   })
@@ -383,12 +398,44 @@ function doGame() {
       console.log("Real Answers = " + JSON.stringify(answers));
       real_answers = answers;
       curQuestion = question;
-      console.log("Emitting question");
 
       curState = "question";
-      io.emit("update_state", {
-        state: curState,
-        question: curQuestion
+      io.of('/').adapter.clients((err, clients) => {
+
+        var internal_clients =  clients.slice();
+        console.log("Total clients = " + internal_clients);
+        for(var i=0; i<NUM_SELECTABLE_ANSWERS-1; i++) {
+          var weights = [];
+          for(var j=0; j<internal_clients.length; j++) {
+            var s = io.sockets.connected[internal_clients[j]];
+            if(s.is_dashboard) weights.push(0);
+            else weights.push(s.user_weight);
+          }
+          // Select a random player to get real question
+          var selection = weightedRandom(weights);
+          var sock = io.sockets.connected[internal_clients[selection]];
+          internal_clients.splice(selection, 1);
+          sock.user_selected = 1;
+          sock.user_weight--;
+          waiting_for_answers++;
+
+          console.log("Emitting question to " + sock.username);
+          sock.emit("update_state", {
+            state: curState,
+            question: curQuestion
+          });
+        }
+
+        console.log("Remaining clients = " + internal_clients.length);
+        // Remaining clients can vote, but not create answers
+        for(var i=0; i<internal_clients.length; i++) {
+          var sock = io.sockets.connected[internal_clients[i]];
+          console.log("Emitting wait to " + sock.username);
+          sock.emit("update_state", {
+            state: "waiting",
+            question: curQuestion
+          });
+        }
       });
 
       // wait for answer creation

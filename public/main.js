@@ -173,6 +173,10 @@ $(function() {
     else if(data.state == "select_answer") {
       showAnswers(data);
     }
+    else if(data.state == "waiting") {
+      $(".page:not(.waiting)").hide();
+      $waitingPage.show();
+    }
   });
 
   socket.on('disconnect', () => {
