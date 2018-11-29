@@ -157,9 +157,14 @@ io.on('connection', function(socket) {
       });
     }
     else {
-      socket.emit("update_state", {
-        state: curState,
-        question: curQuestion
+      io.of('/').adapter.clients((err, clients) => {
+        for(var i=0; i<clients.length; i++) {
+          var sock = io.sockets.connected[clients[i]];
+          sock.emit("update_state", {
+            state: sock.user_selected == 1 ? curState : "waiting",
+            question: curQuestion
+          });
+        }
       });
     }
   });
@@ -416,11 +421,20 @@ function doGame() {
           var weights = [];
           for(var j=0; j<internal_clients.length; j++) {
             var s = io.sockets.connected[internal_clients[j]];
-            if(s.is_dashboard) weights.push(0);
+            if(s.is_dashboard) {
+              internal_clients.splice(j--, 1);
+              s.emit("update_state", {
+                state: curState,
+                question: curQuestion
+              });
+            }
             else weights.push(s.user_weight);
           }
           // Select a random player to get real question
           var selection = weightedRandom(weights);
+          if(selection == -1) {
+            break;
+          }
           var sock = io.sockets.connected[internal_clients[selection]];
           internal_clients.splice(selection, 1);
           sock.user_selected = 1;
