@@ -13,7 +13,7 @@ var weightedRandom = require('weighted-random');
 
 const PORT = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 const IP = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
-const NUM_SELECTABLE_ANSWERS = 6; // max = 10
+const NUM_SELECTABLE_ANSWERS = 5; // max = 10
 const FAKE_ANSWER_POINTS = 5;
 const ANSWER_MS_TIMEOUT = 60000; // 60 seconds
 const MIN_REAL_ANSWERS = 5;
@@ -47,10 +47,8 @@ var curQuestion = "";
 var createAnswerTmout;
 var submitAnswerTmout;
 var curState = "between_games";
-var valid_answer_count = 0;
 var waiting_for_answers = 0;
 
-// TODO: Don't allow # users >= NUM_SELECTABLE_ANSWERS
 
 var _names = require('./words/names.js');
 var _obj_beg = require('./words/object_beginnings.js');
@@ -174,7 +172,6 @@ io.on('connection', function(socket) {
     user_answers = new Hashmap();
     selectable_answers = [];
     user_final_answers = new Hashmap();
-    valid_answer_count = 0;
     user_state.forEach(function(value, key) {
       var obj = user_state.get(key);
       user_state.set(key, obj);
@@ -270,7 +267,8 @@ function onSubmitAnswer() {
 
 function generateAnswers(user_answers) { 
   var answer_set = user_answers.entries();
-
+  var unique_answer_count = 1;
+  
   // Add top real answer
   answer_state.set(real_answers[0], {
     created_by: ["- Real -"],
@@ -288,9 +286,10 @@ function generateAnswers(user_answers) {
       var cur = answer_state.get(answer_set[i][1]);
       if(cur) {
         cur.created_by.push(answer_set[i][0]);
+        cur.created_by_points = FAKE_ANSWER_POINTS;
       }
       else {
-        valid_answer_count++;
+        unique_answer_count++;
         cur = {
           created_by: [answer_set[i][0]],
           selected_by: [],
@@ -303,13 +302,15 @@ function generateAnswers(user_answers) {
   }
 
   // Supplement with other real answers
-  for(var i=1; i<NUM_SELECTABLE_ANSWERS-valid_answer_count; i++) {
+  for(var i=1; i<NUM_SELECTABLE_ANSWERS; i++) {
     var cur = answer_state.get(real_answers[i]);
+    // user answer is same as real answer
     if(cur) {
       cur.created_by.push("- Real -");
       cur.selected_by_points = NUM_SELECTABLE_ANSWERS*2 - 2*i;
-      // user answer is same as real answer
-      valid_answer_count--;
+    }
+    else if(unique_answer_count >= NUM_SELECTABLE_ANSWERS) {
+      continue;
     }
     else {
       cur = {
@@ -318,6 +319,7 @@ function generateAnswers(user_answers) {
         created_by_points: 0,
         selected_by_points: NUM_SELECTABLE_ANSWERS*2 - 2*i
       };
+      unique_answer_count++;
     }
     answer_state.set(real_answers[i], cur);
   }
