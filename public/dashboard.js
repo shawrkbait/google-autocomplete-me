@@ -54,7 +54,7 @@ $(function() {
         $.each(sorted_answers[rowIndex][1].created_by, function(i, r) {
           var btn = $("<button/>", { 'class': 'btn btn-primary', 'type': 'button'});
           btn.text(sorted_answers[rowIndex][1].created_by[i] + " ");
-          if(sorted_answers[rowIndex][1].created_by[i] != "- Real -") {
+          if(!sorted_answers[rowIndex][1].created_by[i].startsWith("- Real")) {
             var pts = sorted_answers[rowIndex][1].created_by_points * sorted_answers[rowIndex][1].selected_by.length;
             if(pts > 0)
               btn.append($("<span/>", { 'class': 'badge badge-light'}).text("+" + pts));

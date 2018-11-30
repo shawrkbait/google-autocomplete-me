@@ -271,7 +271,7 @@ function generateAnswers(user_answers) {
   
   // Add top real answer
   answer_state.set(real_answers[0], {
-    created_by: ["- Real -"],
+    created_by: ["- Real #1 -"],
     selected_by: [],
     created_by_points: 0,
     selected_by_points: 10
@@ -306,15 +306,16 @@ function generateAnswers(user_answers) {
     var cur = answer_state.get(real_answers[i]);
     // user answer is same as real answer
     if(cur) {
-      cur.created_by.push("- Real -");
+      cur.created_by.push("- Real #" + (i+1) + " -");
       cur.selected_by_points = NUM_SELECTABLE_ANSWERS*2 - 2*i;
+      //TODO: more points for creating a real answer, but nobody selected?
     }
     else if(unique_answer_count >= NUM_SELECTABLE_ANSWERS) {
       continue;
     }
     else {
       cur = {
-        created_by: ["- Real -"],
+        created_by: ["- Real #" + (i+1) + " -"],
         selected_by: [],
         created_by_points: 0,
         selected_by_points: NUM_SELECTABLE_ANSWERS*2 - 2*i
