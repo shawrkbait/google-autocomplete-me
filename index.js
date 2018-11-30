@@ -302,12 +302,12 @@ function generateAnswers(user_answers) {
   }
 
   // Supplement with other real answers
-  for(var i=1; i<NUM_SELECTABLE_ANSWERS; i++) {
+  for(var i=1; i<real_answers.length; i++) {
     var cur = answer_state.get(real_answers[i]);
     // user answer is same as real answer
     if(cur) {
       cur.created_by.push("- Real #" + (i+1) + " -");
-      cur.selected_by_points = NUM_SELECTABLE_ANSWERS*2 - 2*i;
+      cur.selected_by_points = 10 - i;
       //TODO: more points for creating a real answer, but nobody selected?
     }
     else if(unique_answer_count >= NUM_SELECTABLE_ANSWERS) {
@@ -318,7 +318,7 @@ function generateAnswers(user_answers) {
         created_by: ["- Real #" + (i+1) + " -"],
         selected_by: [],
         created_by_points: 0,
-        selected_by_points: NUM_SELECTABLE_ANSWERS*2 - 2*i
+        selected_by_points: 10 - i
       };
       unique_answer_count++;
     }
