@@ -136,8 +136,8 @@ io.on('connection', function(socket) {
       user_state.set(username, {username: username, total_score: 0, answer: ""});
     }
     socket.user_selected = 0;
-    socket.user_weight = 10;
-    console.log("Emitting update state (" + curState + ") " + user_state.entries());
+    socket.user_weight = 1;
+    console.log("Emitting update state (" + curState + ") " + user_state.values());
     if(curState == "between_games") {
       // send to all
       io.emit("update_state", {
@@ -155,14 +155,9 @@ io.on('connection', function(socket) {
       });
     }
     else {
-      io.of('/').adapter.clients((err, clients) => {
-        for(var i=0; i<clients.length; i++) {
-          var sock = io.sockets.connected[clients[i]];
-          sock.emit("update_state", {
-            state: sock.user_selected == 1 ? curState : "waiting",
-            question: curQuestion
-          });
-        }
+      socket.emit("update_state", { 
+        state: "waiting",
+        question: curQuestion
       });
     }
   });
@@ -419,18 +414,12 @@ function doGame() {
       io.of('/').adapter.clients((err, clients) => {
 
         var internal_clients =  clients.slice();
-        console.log("Total clients = " + internal_clients);
         for(var i=0; i<NUM_SELECTABLE_ANSWERS-1; i++) {
           var weights = [];
           for(var j=0; j<internal_clients.length; j++) {
             var s = io.sockets.connected[internal_clients[j]];
-            if(s.is_dashboard) {
-              internal_clients.splice(j--, 1);
-              s.emit("update_state", {
-                state: curState,
-                question: curQuestion
-              });
-            }
+            // !s.user_weight is waiting for login?
+            if(s.is_dashboard || !s.user_weight) weights.push(0);
             else weights.push(s.user_weight);
           }
           // Select a random player to get real question
@@ -440,11 +429,11 @@ function doGame() {
           }
           var sock = io.sockets.connected[internal_clients[selection]];
           internal_clients.splice(selection, 1);
+          console.log("Emitting question to " + sock.username + " weight=" + sock.user_weight);
           sock.user_selected = 1;
-          sock.user_weight--;
+          sock.user_weight/=2;
           waiting_for_answers++;
 
-          console.log("Emitting question to " + sock.username);
           sock.emit("update_state", {
             state: curState,
             question: curQuestion
@@ -455,11 +444,19 @@ function doGame() {
         // Remaining clients can vote, but not create answers
         for(var i=0; i<internal_clients.length; i++) {
           var sock = io.sockets.connected[internal_clients[i]];
-          console.log("Emitting wait to " + sock.username);
-          sock.emit("update_state", {
-            state: "waiting",
-            question: curQuestion
-          });
+          if(sock.is_dashboard) {
+            sock.emit("update_state", {
+              state: curState,
+              question: curQuestion
+            });
+          }
+          else if(sock.username) {
+            console.log("Emitting wait to " + sock.username);
+            sock.emit("update_state", {
+              state: "waiting",
+              question: curQuestion
+            });
+          }
         }
       });
 

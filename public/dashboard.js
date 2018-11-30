@@ -5,7 +5,6 @@ $(function() {
   var $answerInput = $('.answerInput');
   var $questionPage = $('.question.page');
   var $scorePage = $('.scoreboard.page'); 
-  var $scores = $('.scoreboardArea'); 
 
   var qlen;
 
@@ -35,7 +34,7 @@ $(function() {
         tbody.append(row);
     });
     table.append(tbody);
-    $scores.html(table);
+    $('.scoreboardArea').html($("<h1/>").text("LeaderBoard")).append(table);
 
     table = $("<table/>",{ 'class': 'table'});
     thead = $("<thead/>");
@@ -78,7 +77,7 @@ $(function() {
         tbody.append(row);
     });
     table.append(tbody);
-    $scores.append(table);
+    $('.finalArea').html($("<h1/>").text("This Round's Answers")).append(table);
     $scorePage.show();
   }
 
