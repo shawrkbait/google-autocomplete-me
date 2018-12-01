@@ -152,7 +152,7 @@ io.on('connection', function(socket) {
       });
     }
     else if(curState == "select_answer") {
-      io.emit("update_state", {
+      socket.emit("update_state", {
         state: curState,
         question: curQuestion,
         answers: selectable_answers
