@@ -115,6 +115,10 @@ io.on('connection', function(socket) {
   });
 
   socket.on('add user', (username) => {
+    if(! /^[a-zA-Z0-9]+$/.test(username)) {
+      socket.disconnect();
+      return;
+    }
     var uname = session_users.get(socket.request.name);
     // user is checking for session
     if(uname) {
