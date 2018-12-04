@@ -17,8 +17,10 @@ $(function() {
   var curState = "question";
 
   $answerInput.val("");
+  $("#loginProblem").hide();
 
   // Check if we already have a session
+  console.log('add user');
   socket.emit('add user', );
 
   // Sets the client's username
@@ -27,10 +29,13 @@ $(function() {
 
     // If the username is valid
     if (username) {
+      $("#loginProblem").hide();
       $loginPage.fadeOut();
       $scorePage.show();
       $loginPage.off('click');
 
+     
+      console.log('add user' + username);
       // Tell the server your username
       socket.emit('add user', username);
     }
@@ -160,7 +165,12 @@ $(function() {
     curState = data.state;
 
     if(data.state == "login_required") {
+      $(".page").stop();
       $(".page:not(.login)").hide();
+      if(data.error) {
+        $("#loginProblem").html(data.error);
+        $("#loginProblem").show();
+      }
       $loginPage.show();
       $currentInput = $usernameInput.focus();
     }

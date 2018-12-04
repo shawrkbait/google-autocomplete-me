@@ -115,10 +115,7 @@ io.on('connection', function(socket) {
   });
 
   socket.on('add user', (username) => {
-    if(! /^[a-zA-Z0-9]+$/.test(username)) {
-      socket.disconnect();
-      return;
-    }
+    console.log('add user');
     var uname = session_users.get(socket.request.name);
     // user is checking for session
     if(uname) {
@@ -128,8 +125,18 @@ io.on('connection', function(socket) {
         username: uname
       });
     }
-    else if(typeof username === 'undefined') {
+    else if(typeof username === 'undefined' || ! /^[a-zA-Z0-9]+$/.test(username)) {
+      console.log("Emitting login_required " + username);
       socket.emit("update_state", {state: "login_required"});
+      return;
+    }
+    else if(socket.username == username) {
+      // Already logged in
+    }
+    else if(user_state.get(username)) {
+      // Username already exists
+      console.log("Emitting login_required to " + username);
+      socket.emit("update_state", {state: "login_required", error: "username is taken"});
       return;
     }
     else {
@@ -138,10 +145,11 @@ io.on('connection', function(socket) {
       socket.username = username;
       console.log(socket.username + " joined");
       user_state.set(username, {username: username, total_score: 0, answer: ""});
+      socket.user_selected = 0;
+      socket.user_weight = 1;
     }
-    socket.user_selected = 0;
-    socket.user_weight = 1;
-    console.log("Emitting update state (" + curState + ") " + user_state.values());
+    console.log("Emitting update state (" + curState + ") ");
+
     if(curState == "between_games") {
       // send to all
       io.emit("update_state", {
@@ -218,8 +226,7 @@ io.on('connection', function(socket) {
   })
 
   socket.on('disconnect', () => {
-      // TODO: remove user
-      // TODO: remove user answer + answer2
+    console.log(socket.username + " disconnected");
   });
 
 });
