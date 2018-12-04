@@ -455,16 +455,17 @@ function doGame() {
         // Remaining clients can vote, but not create answers
         for(var i=0; i<internal_clients.length; i++) {
           var sock = io.sockets.connected[internal_clients[i]];
-          if(sock.is_dashboard) {
-            sock.emit("update_state", {
-              state: curState,
-              question: curQuestion
-            });
-          }
-          else if(sock.username) {
+          if(sock.username) {
             console.log("Emitting wait to " + sock.username);
             sock.emit("update_state", {
               state: "waiting",
+              question: curQuestion
+            });
+          }
+          else {
+            console.log("Updating dashboard");
+            sock.emit("update_state", {
+              state: curState,
               question: curQuestion
             });
           }
