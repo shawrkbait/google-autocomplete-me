@@ -8,7 +8,7 @@ var querystring = require('querystring');
 var Sentencer = require('sentencer');
 var Hashmap = require('hashmap');
 var randy = require('randy');
-var weightedRandom = require('weighted-random');
+var weightedRandom = require('multi-weighted-random');
 
 
 const PORT = process.env.OPENSHIFT_NODEJS_PORT || 8080;
@@ -49,7 +49,6 @@ var submitAnswerTmout;
 var curState = "between_games";
 var waiting_for_answers = 0;
 
-
 var _names = require('./words/names.js');
 var _obj_beg = require('./words/object_beginnings.js');
 var _past = require('./words/past_verbs.js');
@@ -78,16 +77,16 @@ Sentencer.configure({
 Sentencer._nouns = Sentencer._nouns.concat(require('./words/nouns.js'));
 
 var _questions = [
-  { weight: Sentencer._nouns.length,		question: "do {{ nouns }} "},
-  { weight: _past.length * _obj_beg.length, 	question: "i {{ past_verb }} {{ object_beginning }} "},
-  { weight: Sentencer._nouns.length, 		question: "how does {{ a_noun }} "},
-  { weight: Sentencer._nouns.length, 		question: "how to watch {{ a_noun }} "},
-  { weight: _present.length, 			question: "what happens if you {{ present_verb }} "},
-  { weight: Sentencer._nouns.length, 		question: "why does {{ a_noun }} "},
-  { weight: _propernouns.length, 		question: "why does {{ proper_noun }} "},
-  { weight: _names.length, 			question: "{{ name }} "},
-  { weight: Sentencer._nouns.length, 		question: "{{ noun }}"}
-]
+  { weight: Sentencer._nouns.length,           question: "do {{ nouns }} "},
+  { weight: _past.length * _obj_beg.length,    question: "i {{ past_verb }} {{ object_beginning }} "},
+  { weight: Sentencer._nouns.length,           question: "how does {{ a_noun }} "},
+  { weight: Sentencer._nouns.length,           question: "how to watch {{ a_noun }} "},
+  { weight: _present.length,                   question: "what happens if you {{ present_verb }} "},
+  { weight: Sentencer._nouns.length,           question: "why does {{ a_noun }} "},
+  { weight: _propernouns.length,               question: "why does {{ proper_noun }} "},
+  { weight: _names.length,                     question: "{{ name }} "},
+  { weight: Sentencer._nouns.length,           question: "{{ noun }}"}
+];
 
 io.set("authorization", function(data, accept) {
   if (data.headers.cookie && data.headers.cookie.indexOf('koa:sess') > -1) {
@@ -421,58 +420,36 @@ function doGame() {
       curState = "question";
       io.of('/').adapter.clients((err, clients) => {
 
-        var internal_clients =  clients.slice();
-        for(var i=0; i<NUM_SELECTABLE_ANSWERS-1; i++) {
-          var weights = [];
-          for(var j=0; j<internal_clients.length; j++) {
-            var s = io.sockets.connected[internal_clients[j]];
-            var uobj = session_users.get(s.request.name);
-            // !uobj.user_weight is waiting for login?
-            if(!uobj.user_weight) weights.push(0);
-            else weights.push(uobj.user_weight);
-          }
-          // Select a random player to get real question
-          var selection = weightedRandom(weights);
-          if(selection == -1) {
-            break;
-          }
-          var sock = io.sockets.connected[internal_clients[selection]];
-          var uobj = session_users.get(sock.request.name);
-          internal_clients.splice(selection, 1);
-          console.log("Emitting question to " + uobj.username + " weight=" + uobj.user_weight);
-          uobj.user_selected = 1;
-          uobj.user_weight/=2;
-          waiting_for_answers++;
+        var weights = clients.map(function(id) {
+          return io.sockets.connected[id].user_weight || 0;
+        });
+        var selectedPlayers = weightedRandom(weights, Math.min(weights.length, NUM_SELECTABLE_ANSWERS-1));
 
-          sock.emit("update_state", {
-            state: curState,
-            question: curQuestion
-          });
-        }
+        for(var i=0; i<clients.length; i++) {
+          var sock = io.sockets.connected[clients[i]];
+          if(selectedPlayers.indexOf(i) != -1) {
+            console.log("selected " + sock.username + " for answer");
+            sock.user_selected = 1;
+            sock.user_weight/=2;
+            waiting_for_answers++;
 
-        console.log("Remaining clients = " + internal_clients.length);
-        // Remaining clients can vote, but not create answers
-        for(var i=0; i<internal_clients.length; i++) {
-          var sock = io.sockets.connected[internal_clients[i]];
-          if(sock.username) {
-            console.log("Emitting wait to " + sock.username);
-            sock.emit("update_state", {
-              state: "waiting",
-              question: curQuestion
-            });
-          }
-          else {
-            console.log("Updating dashboard");
             sock.emit("update_state", {
               state: curState,
               question: curQuestion
             });
+          } 
+          else {
+            if(sock.username) console.log(sock.username + " is unselected");
+            sock.emit("update_state", {
+              state: (sock.username ? "waiting" : curState),
+              question: curQuestion
+            });
           }
         }
+            
+        // wait for answer creation
+        createAnswerTmout = setTimeout(onCreateAnswerTmout, ANSWER_MS_TIMEOUT);
       });
-
-      // wait for answer creation
-      createAnswerTmout = setTimeout(onCreateAnswerTmout, ANSWER_MS_TIMEOUT);
     });
 }
 
@@ -480,8 +457,8 @@ function randomQuestion() {
   var weights = _questions.map(function(q) {
     return q.weight;
   });
-  var i = weightedRandom(weights);
-  return Sentencer.make(_questions[i].question,2);
+  var ar = weightedRandom(weights,1);
+  return Sentencer.make(_questions[ar[0]].question,2);
 }
 
 function doGameTest() {
