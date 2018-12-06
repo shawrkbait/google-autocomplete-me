@@ -105,7 +105,6 @@ io.on('connection', function(socket) {
 
   // A dashboard for the current game state
   socket.on('dashboard', (username) => {
-    socket.is_dashboard = 1;
     socket.emit("update_state", {
       state: curState,
       question: curQuestion,
@@ -115,23 +114,14 @@ io.on('connection', function(socket) {
   });
 
   socket.on('add user', (username) => {
-    console.log('add user');
-    var uname = session_users.get(socket.request.name);
-    // user is checking for session
-    if(uname) {
-      socket.username = uname;
-      console.log("Emitting set_username: " + uname);
-      socket.emit("set_username", {
-        username: uname
-      });
+    var uobj = session_users.get(socket.request.name);
+    if(uobj) {
+      console.log("Existing user is back = " + uobj.username);
     }
     else if(typeof username === 'undefined' || ! /^[a-zA-Z0-9]+$/.test(username)) {
       console.log("Emitting login_required " + username);
       socket.emit("update_state", {state: "login_required"});
       return;
-    }
-    else if(socket.username == username) {
-      // Already logged in
     }
     else if(user_state.get(username)) {
       // Username already exists
@@ -140,13 +130,15 @@ io.on('connection', function(socket) {
       return;
     }
     else {
+      uobj = {
+        username: username,
+        user_selected: 0,
+        user_weight: 1
+      }
       // map session id to a username
-      session_users.set(socket.request.name, username);
-      socket.username = username;
-      console.log(socket.username + " joined");
+      session_users.set(socket.request.name, uobj);
+      console.log(username + " joined");
       user_state.set(username, {username: username, total_score: 0, answer: ""});
-      socket.user_selected = 0;
-      socket.user_weight = 1;
     }
     console.log("Emitting update state (" + curState + ") ");
 
@@ -168,7 +160,7 @@ io.on('connection', function(socket) {
     }
     else {
       socket.emit("update_state", { 
-        state: "waiting",
+        state: uobj.user_selected == 1 ? curState : "waiting",
         question: curQuestion
       });
     }
@@ -176,6 +168,7 @@ io.on('connection', function(socket) {
 
   socket.on('start game', () => {
     if(curState != "between_games") return;
+    var uobj = session_users.get(socket.request.name);
     user_answers = new Hashmap();
     selectable_answers = [];
     user_final_answers = new Hashmap();
@@ -186,28 +179,30 @@ io.on('connection', function(socket) {
     answer_state = new Hashmap();
     io.of('/').adapter.clients((err, clients) => {
       for(var i=0; i< clients.length; i++) {
-        io.sockets.connected[clients[i]].user_selected = 0;
+        var s = io.sockets.connected[clients[i]];
+        session_users.get(s.request.name).user_selected = 0;
       }
     });
     waiting_for_answers = 0;
-    console.log("Game started by " + socket.username);
+    console.log("Game started by " + uobj.username);
 
     doGame();
   });
 
   //Process someone's answer
   socket.on('create_answer', (answer) => {
-    if(socket.user_selected != 1 || socket.is_dashboard == 1)
+    var uobj = session_users.get(socket.request.name);
+    if(uobj.user_selected != 1)
       return;
 
-    console.log(socket.username + " answered \"" + answer + "\"");
+    console.log(uobj.username + " answered \"" + answer + "\"");
 
     /* Make all answers look googly
      *  convert to lowercase and remove punctuation
      */
     var mangledA = answer.toLowerCase();
     mangledA = mangledA.replace(/[\?\.\!]$/gi,"");
-    user_answers.set(socket.username, mangledA);
+    user_answers.set(uobj.username, mangledA);
 
     console.log(user_answers.size + " of " + waiting_for_answers);
     if (waiting_for_answers == user_answers.size) {
@@ -216,8 +211,9 @@ io.on('connection', function(socket) {
   })
 
   socket.on('submit_answer', (answer) => {
-    console.log(socket.username + " submitted \"" + answer + "\"");
-    user_final_answers.set(socket.username, answer);
+    var uobj = session_users.get(socket.request.name);
+    console.log(uobj.username + " submitted \"" + answer + "\"");
+    user_final_answers.set(uobj.username, answer);
 
     console.log(user_final_answers.size + " of " + user_state.size);
     if (user_state.size == user_final_answers.size) {
@@ -226,7 +222,8 @@ io.on('connection', function(socket) {
   })
 
   socket.on('disconnect', () => {
-    console.log(socket.username + " disconnected");
+    var uobj = session_users.get(socket.request.name);
+    if(uobj) console.log(uobj.username + " disconnected");
   });
 
 });
@@ -429,9 +426,10 @@ function doGame() {
           var weights = [];
           for(var j=0; j<internal_clients.length; j++) {
             var s = io.sockets.connected[internal_clients[j]];
-            // !s.user_weight is waiting for login?
-            if(s.is_dashboard || !s.user_weight) weights.push(0);
-            else weights.push(s.user_weight);
+            var uobj = session_users.get(s.request.name);
+            // !uobj.user_weight is waiting for login?
+            if(!uobj.user_weight) weights.push(0);
+            else weights.push(uobj.user_weight);
           }
           // Select a random player to get real question
           var selection = weightedRandom(weights);
@@ -439,10 +437,11 @@ function doGame() {
             break;
           }
           var sock = io.sockets.connected[internal_clients[selection]];
+          var uobj = session_users.get(sock.request.name);
           internal_clients.splice(selection, 1);
-          console.log("Emitting question to " + sock.username + " weight=" + sock.user_weight);
-          sock.user_selected = 1;
-          sock.user_weight/=2;
+          console.log("Emitting question to " + uobj.username + " weight=" + uobj.user_weight);
+          uobj.user_selected = 1;
+          uobj.user_weight/=2;
           waiting_for_answers++;
 
           sock.emit("update_state", {
