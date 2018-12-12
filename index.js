@@ -421,27 +421,30 @@ function doGame() {
       io.of('/').adapter.clients((err, clients) => {
 
         var weights = clients.map(function(id) {
-          return io.sockets.connected[id].user_weight || 0;
+          var uobj = session_users.get(io.sockets.connected[id].request.name);
+          return uobj.user_weight || 0;
         });
         var selectedPlayers = weightedRandom(weights, Math.min(weights.length, NUM_SELECTABLE_ANSWERS-1));
 
         for(var i=0; i<clients.length; i++) {
           var sock = io.sockets.connected[clients[i]];
+          var uobj = session_users.get(sock.request.name);
           if(selectedPlayers.indexOf(i) != -1) {
-            console.log("selected " + sock.username + " for answer");
-            sock.user_selected = 1;
-            sock.user_weight/=2;
+            console.log("selected " + uobj.username + " for answer");
+            uobj.user_selected = 1;
+            uobj.user_weight/=2;
             waiting_for_answers++;
 
+            session_users.set(sock.request.name, uobj);
             sock.emit("update_state", {
               state: curState,
               question: curQuestion
             });
           } 
           else {
-            if(sock.username) console.log(sock.username + " is unselected");
+            if(uobj.username) console.log(uobj.username + " is unselected");
             sock.emit("update_state", {
-              state: (sock.username ? "waiting" : curState),
+              state: (uobj.username ? "waiting" : curState),
               question: curQuestion
             });
           }
