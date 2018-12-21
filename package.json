@@ -18,8 +18,8 @@
     "koa-session": "4.8.0",
     "request": "^2.88.0",
     "sentencer": "https://github.com/shawrkbait/Sentencer.git#google-autocomplete-me",
-    "socket.io": "2.1.1",
-    "weighted-random": "0.1.0"
+    "multi-weighted-random": "https://github.com/shawrkbait/multi-weighted-random#master",
+    "socket.io": "2.1.1"
   },
   "scripts": {
     "start": "node index.js"
