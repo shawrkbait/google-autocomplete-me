@@ -13,6 +13,7 @@ var weightedRandom = require('multi-weighted-random');
 
 const PORT = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 const IP = process.env.OPENSHIFT_NODEJS_IP || '0.0.0.0';
+const CACHED_GAME = process.env.GOOGLYGOOK_CACHED_GAME || false;
 const NUM_SELECTABLE_ANSWERS = 5; // max = 10
 const FAKE_ANSWER_POINTS = 5;
 const ANSWER_MS_TIMEOUT = 60000; // 60 seconds
@@ -87,6 +88,8 @@ var _questions = [
   { weight: _names.length,                     question: "{{ name }} "},
   { weight: Sentencer._nouns.length,           question: "{{ noun }}"}
 ];
+
+var _cached_qanda = require('./cache.txt');
 
 io.set("authorization", function(data, accept) {
   if (data.headers.cookie && data.headers.cookie.indexOf('koa:sess') > -1) {
@@ -185,7 +188,7 @@ io.on('connection', function(socket) {
     waiting_for_answers = 0;
     console.log("Game started by " + uobj.username);
 
-    doGame();
+    doGame(CACHED_GAME);
   });
 
   //Process someone's answer
@@ -381,79 +384,43 @@ function shuffle(array) {
     return array;
 }
 
-function doGame() {
-    var question = "";
-    var answers = [];
+function doGame(cached=false) {
+  if(cached) {
+    return doGameCached();
+  }
+  var question = "";
+  var answers = [];
 
-    // Regenerate until we have a valid question
-    async.whilst(function () {
-      return answers.length < MIN_REAL_ANSWERS;
-    },
-    function (next) {
-      var encoded = querystring.escape(randomQuestion());
-      request('http://suggestqueries.google.com/complete/search?client=firefox&q=' + encoded, { json: true }, (err, res, body) => { 
-        if (!err && res.statusCode == 200) {
-          question = body[0];
-          console.log("Question = " + question);
-          answers = body[1];
-          console.log("Orig Answers = " + body);
-            // strip out all that don't actually start with question
-            for(var i=answers.length -1; i>=0; i--) {
-              if(!answers[i].startsWith(question) || answers[i] == question) {
-                //console.log("removing \"" + answers[i] + "\" from answers");
-                answers.splice(i,1);
-              }
-              else {
-                answers[i] = answers[i].substring(question.length, answers[i].length);
-              }
+  // Regenerate until we have a valid question
+  async.whilst(function () {
+    return answers.length < MIN_REAL_ANSWERS;
+  },
+  function (next) {
+    var encoded = querystring.escape(randomQuestion());
+    request('http://suggestqueries.google.com/complete/search?client=firefox&q=' + encoded, { json: true }, (err, res, body) => { 
+      if (!err && res.statusCode == 200) {
+        question = body[0];
+        console.log("Question = " + question);
+        answers = body[1];
+        console.log("Orig Answers = " + body);
+          // strip out all that don't actually start with question
+          for(var i=answers.length -1; i>=0; i--) {
+            if(!answers[i].startsWith(question) || answers[i] == question) {
+              //console.log("removing \"" + answers[i] + "\" from answers");
+              answers.splice(i,1);
             }
-        }
-        console.log("# Answers = " +answers.length)
-        next();
-      });
-    },
-    function (err) {
-      console.log("Real Answers = " + JSON.stringify(answers));
-      real_answers = answers;
-      curQuestion = question;
-
-      curState = "question";
-      io.of('/').adapter.clients((err, clients) => {
-
-        var weights = clients.map(function(id) {
-          var uobj = session_users.get(io.sockets.connected[id].request.name);
-          return uobj.user_weight || 0;
-        });
-        var selectedPlayers = weightedRandom(weights, Math.min(weights.length, NUM_SELECTABLE_ANSWERS-1));
-
-        for(var i=0; i<clients.length; i++) {
-          var sock = io.sockets.connected[clients[i]];
-          var uobj = session_users.get(sock.request.name);
-          if(selectedPlayers.indexOf(i) != -1) {
-            console.log("selected " + uobj.username + " for answer");
-            uobj.user_selected = 1;
-            uobj.user_weight/=2;
-            waiting_for_answers++;
-
-            session_users.set(sock.request.name, uobj);
-            sock.emit("update_state", {
-              state: curState,
-              question: curQuestion
-            });
-          } 
-          else {
-            if(uobj.username) console.log(uobj.username + " is unselected");
-            sock.emit("update_state", {
-              state: (uobj.username ? "waiting" : curState),
-              question: curQuestion
-            });
+            else {
+              answers[i] = answers[i].substring(question.length, answers[i].length);
+            }
           }
-        }
-            
-        // wait for answer creation
-        createAnswerTmout = setTimeout(onCreateAnswerTmout, ANSWER_MS_TIMEOUT);
-      });
+      }
+      console.log("# Answers = " +answers.length)
+      next();
     });
+  },
+  function (err) {
+    publishQAndA(question, answers);
+  });
 }
 
 function randomQuestion() {
@@ -464,23 +431,63 @@ function randomQuestion() {
   return Sentencer.make(_questions[ar[0]].question,2);
 }
 
+function doGameCached() {
+  console.log("Doing cached game");
+  var randI = Math.floor(Math.random() * Math.floor(_cached_qanda.length));
+  var question = _cached_qanda[randI][0];
+  var answers = _cached_qanda[randI][1];
+
+  publishQAndA(question, answers);
+}
+
 function doGameTest() {
     var question = "why does harold";
     var answers = [" finch limp"," hate it when lena cries"," like going to funerals"," kill kyle"];
 
-    console.log("Real Answers = " + JSON.stringify(answers));
-    real_answers = answers;
-    curQuestion = question;
-    console.log("Emitting question");
+    publishQAndA(question, answers);
+}
 
-    curState = "question"
-    io.emit("update_state", {
-      state: curState,
-      question: curQuestion
+function publishQAndA(question, answers) {
+  console.log("Real Answers = " + JSON.stringify(answers));
+  real_answers = answers;
+  curQuestion = question;
+
+  curState = "question";
+  io.of('/').adapter.clients((err, clients) => {
+
+    var weights = clients.map(function(id) {
+      var uobj = session_users.get(io.sockets.connected[id].request.name);
+      return uobj.user_weight || 0;
     });
+    var selectedPlayers = weightedRandom(weights, Math.min(weights.length, NUM_SELECTABLE_ANSWERS-1));
+
+    for(var i=0; i<clients.length; i++) {
+      var sock = io.sockets.connected[clients[i]];
+      var uobj = session_users.get(sock.request.name);
+      if(selectedPlayers.indexOf(i) != -1) {
+        console.log("selected " + uobj.username + " for answer");
+        uobj.user_selected = 1;
+        uobj.user_weight/=2;
+        waiting_for_answers++;
+
+        session_users.set(sock.request.name, uobj);
+        sock.emit("update_state", {
+          state: curState,
+          question: curQuestion
+        });
+      }
+      else {
+        if(uobj.username) console.log(uobj.username + " is unselected");
+        sock.emit("update_state", {
+          state: (uobj.username ? "waiting" : curState),
+          question: curQuestion
+        });
+      }
+    }
 
     // wait for answer creation
     createAnswerTmout = setTimeout(onCreateAnswerTmout, ANSWER_MS_TIMEOUT);
+  });
 }
 
 server.listen(PORT, IP);
