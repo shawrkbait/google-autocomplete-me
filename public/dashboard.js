@@ -6,9 +6,10 @@ $(function() {
   var $questionPage = $('.question.page');
   var $scorePage = $('.scoreboard.page'); 
 
-  var qlen;
-
   var curState = "question";
+  var round = 0;
+
+  const GAME_ROUNDS = 10;
 
   $answerInput.val("");
 
@@ -16,6 +17,7 @@ $(function() {
   socket.emit('dashboard', );
 
   const showScores = (data) => {
+    round = data.round;
     console.log("showScores: " + JSON.stringify(data));
     $(".page:not(.scoreboard)").hide();
     var sorted_users = data.user_state.sort(function(a,b) {return b.total_score - a.total_score});
@@ -29,7 +31,16 @@ $(function() {
     table.append(thead);
     $.each(sorted_users,function(rowIndex, r) {
         var row = $("<tr/>");
-        row.append($("<td/>").text(sorted_users[rowIndex].username));
+        if(round == GAME_ROUNDS && rowIndex == 0) {
+          var sp = $("<span/>", { "class": "glyphicon glyphicon-star" });
+          var t = $("<td/>");
+          t.html("Winner! ");
+          t.append(sp);
+          t.append(sorted_users[rowIndex].username);
+          row.append($("<td/>").html(t));
+        }
+        else
+          row.append($("<td/>").text(sorted_users[rowIndex].username));
         row.append($("<td/>").text(sorted_users[rowIndex].total_score));
         tbody.append(row);
     });
@@ -77,7 +88,7 @@ $(function() {
         tbody.append(row);
     });
     table.append(tbody);
-    $('.finalArea').html($("<h1/>").text("This Round's Answers")).append(table);
+    $('.finalArea').html($("<h1/>").text("Round " + round + "/" + GAME_ROUNDS + " Answers")).append(table);
     $scorePage.show();
   }
 
@@ -85,15 +96,14 @@ $(function() {
     $('#form-answer').prop("disabled", false);
     $('#form-answer').show();
     console.log("showQuestion: " + JSON.stringify(data));
-    $currentInput = $answerInput.focus();
     $('.question.page #answerSelection').html("");
     $(".page:not(.question)").hide();
     $questionPage.show();
 
     var readOnlyLength = data.question.length;
-    qlen = readOnlyLength;
     $answerInput.prop('readonly', false);
     $answerInput.val(data.question);
+    $answerInput.focus();
   }
 
   const showAnswers = (data) => {

@@ -18,6 +18,7 @@ const NUM_SELECTABLE_ANSWERS = 5; // max = 10
 const FAKE_ANSWER_POINTS = 5;
 const ANSWER_MS_TIMEOUT = 60000; // 60 seconds
 const MIN_REAL_ANSWERS = 5;
+const GAME_ROUNDS = 10;
 
 app.keys = ['something secret'];
 app.use(session({},app));
@@ -49,6 +50,8 @@ var createAnswerTmout;
 var submitAnswerTmout;
 var curState = "between_games";
 var waiting_for_answers = 0;
+
+var round = 0;
 
 var _names = require('./words/names.js');
 var _obj_beg = require('./words/object_beginnings.js');
@@ -111,8 +114,10 @@ io.on('connection', function(socket) {
       state: curState,
       question: curQuestion,
       user_state: user_state.values(),
-      answer_state: answer_state.entries()
+      answer_state: answer_state.entries(),
+      round: round
     });
+    socket.join('dashboard');
   });
 
   socket.on('add user', (username) => {
@@ -142,15 +147,16 @@ io.on('connection', function(socket) {
       console.log(username + " joined");
       user_state.set(username, {username: username, total_score: 0, answer: ""});
     }
+    socket.join('game');
     console.log("Emitting update state (" + curState + ") ");
-
     if(curState == "between_games") {
       // send to all
       io.emit("update_state", {
         state: curState,
         question: curQuestion,
         user_state: user_state.values(),
-        answer_state: answer_state.entries()
+        answer_state: answer_state.entries(),
+        round: round
       });
     }
     else if(curState == "select_answer") {
@@ -176,10 +182,12 @@ io.on('connection', function(socket) {
     user_final_answers = new Hashmap();
     user_state.forEach(function(value, key) {
       var obj = user_state.get(key);
+      if(round == GAME_ROUNDS)
+        obj.total_score = 0;
       user_state.set(key, obj);
     });
     answer_state = new Hashmap();
-    io.of('/').adapter.clients((err, clients) => {
+    io.in('game').clients((err, clients) => {
       for(var i=0; i< clients.length; i++) {
         var s = io.sockets.connected[clients[i]];
         session_users.get(s.request.name).user_selected = 0;
@@ -188,6 +196,13 @@ io.on('connection', function(socket) {
     waiting_for_answers = 0;
     console.log("Game started by " + uobj.username);
 
+    if(round == GAME_ROUNDS) { 
+      round = 1;
+      console.log("Game started by " + socket.username);
+    } else {
+      console.log("Round started by " + socket.username);
+      round++;
+    }
     doGame(CACHED_GAME);
   });
 
@@ -265,7 +280,8 @@ function onSubmitAnswer() {
     state: curState,
     question: curQuestion,
     user_state: user_state.values(),
-    answer_state: answer_state.entries()
+    answer_state: answer_state.entries(),
+    round: round
   });
   clearTimeout(submitAnswerTmout);
 } 
@@ -453,7 +469,7 @@ function publishQAndA(question, answers) {
   curQuestion = question;
 
   curState = "question";
-  io.of('/').adapter.clients((err, clients) => {
+  io.in('game').clients((err, clients) => {
 
     var weights = clients.map(function(id) {
       var uobj = session_users.get(io.sockets.connected[id].request.name);
@@ -487,6 +503,10 @@ function publishQAndA(question, answers) {
 
     // wait for answer creation
     createAnswerTmout = setTimeout(onCreateAnswerTmout, ANSWER_MS_TIMEOUT);
+  });
+  io.to('dashboard').emit("update_state", {
+    state: curState,
+    question: curQuestion
   });
 }
 
