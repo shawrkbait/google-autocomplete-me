@@ -37,5 +37,5 @@ Acquire points over 10 rounds by guessing the top auto-complete recommendations 
 1. Player selects own answer and 1 other player also selects this answer
    * 5 points for each user who selected the answer. (5x2) = 10 points
    * It happens that “food is love" is also the seventh top search term.
-      * 4 points for duplicating the third top google search
-1. Player would receive (4 + 2 * 5) = 14 points this round.
+      * 4 points for duplicating the seventh top google search
+1. Player would receive (4 + 5 * 2) = 14 points this round.
